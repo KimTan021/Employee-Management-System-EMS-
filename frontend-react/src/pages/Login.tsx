@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../components/theme-provider';
+import { useToast } from '../components/ToastContext';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -13,6 +14,7 @@ export default function Login() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { showToast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,18 +36,22 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = () => {
+    showToast('Contact your system administrator to reset your password.', 'info');
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#eef2f6] via-[#fdfaf4] to-[#faedd0] dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans transition-colors duration-300 p-4">
+    <div className="flex min-h-screen items-center justify-center overflow-y-auto bg-gradient-to-br from-[#eef2f6] via-[#fdfaf4] to-[#faedd0] dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans transition-colors duration-300 p-4">
       {/* Background abstract shape to match reference style */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/20 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none opacity-50"></div>
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-white/40 dark:bg-slate-700/20 rounded-full blur-[80px] -ml-20 -mb-20 pointer-events-none opacity-60"></div>
       
       {/* Theme Toggle Top Right */}
-      <div className="absolute top-6 right-6 z-20">
+      <div className="fixed top-6 right-6 z-20">
          <button 
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-3 text-slate-500 bg-white/50 backdrop-blur-sm shadow-sm hover:bg-white dark:bg-slate-800/50 dark:hover:bg-slate-800 dark:text-slate-400 rounded-full transition-all border border-white/40 dark:border-slate-700/50"
-            title="Toggle theme"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? (
               <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -110,7 +116,7 @@ export default function Login() {
                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 dark:text-slate-400">Remember me</label>
              </div>
              <div className="text-sm">
-               <a href="#" className="font-medium text-slate-900 hover:text-slate-700 dark:text-white dark:hover:text-slate-300 transition-colors">Forgot password?</a>
+               <button type="button" onClick={handleForgotPassword} className="font-medium text-slate-900 hover:text-slate-700 dark:text-white dark:hover:text-slate-300 transition-colors">Forgot password?</button>
              </div>
           </div>
 
