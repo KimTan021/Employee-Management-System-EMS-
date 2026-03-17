@@ -30,6 +30,30 @@ public class Employee extends Person {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal salary;
 
+    @Column(length = 30)
+    private String phone;
+
+    @Column(length = 255)
+    private String address;
+
+    @Column(name = "emergency_contact_name", length = 100)
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 30)
+    private String emergencyContactPhone;
+
+    @Column(name = "annual_leave_balance")
+    private Integer annualLeaveBalance;
+
+    @Column(name = "sick_leave_balance")
+    private Integer sickLeaveBalance;
+
+    @Column(name = "personal_leave_balance")
+    private Integer personalLeaveBalance;
+
+    @Column(nullable = false)
+    private Boolean active = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -37,4 +61,7 @@ public class Employee extends Person {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }

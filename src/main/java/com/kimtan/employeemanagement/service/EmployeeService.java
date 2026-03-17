@@ -8,6 +8,7 @@ import com.kimtan.employeemanagement.model.entity.Department;
 import com.kimtan.employeemanagement.model.entity.Employee;
 import com.kimtan.employeemanagement.repository.DepartmentRepository;
 import com.kimtan.employeemanagement.repository.EmployeeRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +28,12 @@ public class EmployeeService implements EmployeeProcessingService {
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
     private final EmployeeMapper employeeMapper;
+    private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public List<EmployeeResponse> getAllEmployees() {
-        return employeeRepository.findAll().stream()
+        return employeeRepository.findByActiveTrue().stream()
                 .map(employeeMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -38,6 +41,13 @@ public class EmployeeService implements EmployeeProcessingService {
     @Transactional(readOnly = true)
     public EmployeeResponse getEmployeeById(Long id) {
         Employee employee = getEmployeeEntity(id);
+        return employeeMapper.toDto(employee);
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeResponse getEmployeeByUsername(String username) {
+        Employee employee = employeeRepository.findByUserUsernameAndActiveTrue(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee profile not found for user: " + username));
         return employeeMapper.toDto(employee);
     }
 
@@ -51,29 +61,65 @@ public class EmployeeService implements EmployeeProcessingService {
         
         Employee employee = employeeMapper.toEntity(request);
         employee.setDepartment(department);
+        if (employee.getActive() == null) {
+            employee.setActive(true);
+        }
+        if (employee.getAnnualLeaveBalance() == null) {
+            employee.setAnnualLeaveBalance(12);
+        }
+        if (employee.getSickLeaveBalance() == null) {
+            employee.setSickLeaveBalance(10);
+        }
+        if (employee.getPersonalLeaveBalance() == null) {
+            employee.setPersonalLeaveBalance(5);
+        }
         
         Employee savedEmployee = employeeRepository.save(employee);
+
+        try {
+            String newValue = objectMapper.writeValueAsString(employeeMapper.toDto(savedEmployee));
+            auditLogService.logAction("EMPLOYEE", savedEmployee.getId(), "CREATE", null, newValue, getCurrentUsername());
+        } catch (Exception e) {
+            // Log silently
+        }
+
         return employeeMapper.toDto(savedEmployee);
     }
 
     @Transactional
     public EmployeeResponse updateEmployee(Long id, EmployeeRequest request) {
         Employee employee = getEmployeeEntity(id);
+        
+        String oldValue = null;
+        try { oldValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee)); } catch (Exception e) {}
+
         Department department = getDepartmentByName(request.getDepartmentName());
 
         employeeMapper.updateEntityFromDto(request, employee);
         employee.setDepartment(department);
 
         Employee updatedEmployee = employeeRepository.save(employee);
+
+        try {
+            String newValue = objectMapper.writeValueAsString(employeeMapper.toDto(updatedEmployee));
+            auditLogService.logAction("EMPLOYEE", updatedEmployee.getId(), "UPDATE", oldValue, newValue, getCurrentUsername());
+        } catch (Exception e) {}
+
         return employeeMapper.toDto(updatedEmployee);
     }
 
     @Transactional
     public void deleteEmployee(Long id) {
-        if (!employeeRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Employee not found with id: " + id);
-        }
-        employeeRepository.deleteById(id);
+        Employee employee = getEmployeeEntity(id);
+        String oldValue = null;
+        try { oldValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee)); } catch (Exception e) {}
+        employee.setActive(false);
+        employeeRepository.save(employee);
+
+        try {
+            String newValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee));
+            auditLogService.logAction("EMPLOYEE", id, "DEACTIVATE", oldValue, newValue, getCurrentUsername());
+        } catch (Exception e) {}
     }
 
     // --- Capstone Specific Requirements (Processing via Java Collections) ---
@@ -83,6 +129,7 @@ public class EmployeeService implements EmployeeProcessingService {
     public BigDecimal calculateAverageSalary() {
         // Utilizing ArrayList explicitly to satisfy capstone requirements.
         ArrayList<Employee> employees = new ArrayList<>(employeeRepository.findAll());
+        employees.removeIf(e -> Boolean.FALSE.equals(e.getActive()));
         if (employees.isEmpty()) return BigDecimal.ZERO;
         
         BigDecimal totalSalary = employees.stream()
@@ -97,6 +144,7 @@ public class EmployeeService implements EmployeeProcessingService {
     public Double calculateAverageAge() {
         // Utilizing ArrayList explicitly to satisfy capstone requirements.
         ArrayList<Employee> employees = new ArrayList<>(employeeRepository.findAll());
+        employees.removeIf(e -> Boolean.FALSE.equals(e.getActive()));
         if (employees.isEmpty()) return 0.0;
         
         LocalDate today = LocalDate.now();
@@ -108,6 +156,14 @@ public class EmployeeService implements EmployeeProcessingService {
     }
     
     // --- Helper Methods ---
+
+    private String getCurrentUsername() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
+            return auth.getName();
+        }
+        return "SYSTEM";
+    }
 
     private Employee getEmployeeEntity(Long id) {
         return employeeRepository.findById(id)

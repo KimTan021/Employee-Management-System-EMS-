@@ -31,13 +31,13 @@ public class EmployeeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
     public ResponseEntity<EmployeeResponse> createEmployee(@Valid @RequestBody EmployeeRequest request) {
         return new ResponseEntity<>(employeeService.createEmployee(request), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
     public ResponseEntity<EmployeeResponse> updateEmployee(
             @PathVariable Long id,
             @Valid @RequestBody EmployeeRequest request) {
@@ -45,7 +45,7 @@ public class EmployeeController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
@@ -59,5 +59,25 @@ public class EmployeeController {
     @GetMapping("/statistics/average-age")
     public ResponseEntity<Double> getAverageAge() {
         return ResponseEntity.ok(employeeService.calculateAverageAge());
+    }
+
+    // --- Admin Leave Management ---
+    
+    @GetMapping("/leaves")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
+    public ResponseEntity<List<com.kimtan.employeemanagement.model.dto.LeaveRequestDto>> getAllLeaves() {
+        return ResponseEntity.ok(com.kimtan.employeemanagement.context.ApplicationContextProvider.getContext()
+                .getBean(com.kimtan.employeemanagement.service.LeaveRequestService.class)
+                .getAllLeaveRequests());
+    }
+
+    @PutMapping("/leaves/{id}/status")
+    @PreAuthorize("hasRole('HR_MANAGER')")
+    public ResponseEntity<com.kimtan.employeemanagement.model.dto.LeaveRequestDto> updateLeaveStatus(
+            @PathVariable Long id, 
+            @RequestParam String status) {
+        return ResponseEntity.ok(com.kimtan.employeemanagement.context.ApplicationContextProvider.getContext()
+                .getBean(com.kimtan.employeemanagement.service.LeaveRequestService.class)
+                .updateLeaveStatus(id, status));
     }
 }

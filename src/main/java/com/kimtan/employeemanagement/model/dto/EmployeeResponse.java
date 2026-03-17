@@ -14,4 +14,12 @@ public class EmployeeResponse {
     private LocalDate dateOfBirth;
     private String departmentName;
     private BigDecimal salary;
+    private String phone;
+    private String address;
+    private String emergencyContactName;
+    private String emergencyContactPhone;
+    private Integer annualLeaveBalance;
+    private Integer sickLeaveBalance;
+    private Integer personalLeaveBalance;
+    private Boolean active;
 }

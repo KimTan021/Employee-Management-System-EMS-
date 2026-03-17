@@ -10,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
@@ -23,11 +24,11 @@ export default function Login() {
 
     try {
       const { data } = await api.post('/auth/login', { username, password });
-      setAuth(data.token, data.username, data.role);
+      setAuth(data.token, data.username, data.role, rememberMe);
       navigate('/');
     } catch (err: any) {
       if (err.code === 'ERR_NETWORK' || err.code === 'ERR_CONNECTION_REFUSED') {
-        setError('Cannot connect to the server. Please ensure the backend is running on port 8080.');
+        setError('Cannot connect to the server. Please ensure the backend is running on port 8081.');
       } else {
         setError(err.response?.data?.message || 'Invalid credentials. Please check your username and password.');
       }
@@ -80,10 +81,16 @@ export default function Login() {
               <p className="text-sm font-medium text-red-600 dark:text-red-400 text-center">{error}</p>
             </div>
           )}
+
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+            Fields marked <span className="text-red-500" aria-hidden="true">*</span> are required.
+          </p>
           
           <div className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="username">Username</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="username">
+                Username <span className="text-red-500" aria-hidden="true">*</span>
+              </label>
               <input
                 id="username"
                 name="username"
@@ -96,14 +103,16 @@ export default function Login() {
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="password">Password</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="password">
+                Password <span className="text-red-500" aria-hidden="true">*</span>
+              </label>
               <input
                 id="password"
                 name="password"
                 type="password"
                 required
                 className="relative block w-full appearance-none rounded-2xl border-none bg-slate-100/80 px-4 py-4 text-slate-900 placeholder-slate-400 focus:z-10 focus:outline-none focus:ring-2 focus:ring-accent sm:text-sm dark:bg-slate-900/50 dark:text-white dark:placeholder-slate-500 transition-all shadow-inner"
-                placeholder="••••••••"
+                placeholder="********"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -112,7 +121,14 @@ export default function Login() {
 
           <div className="flex items-center justify-between mt-4">
              <div className="flex items-center">
-               <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-accent dark:border-slate-600 dark:bg-slate-700 dark:checked:bg-accent" />
+               <input
+                 id="remember-me"
+                 name="remember-me"
+                 type="checkbox"
+                 checked={rememberMe}
+                 onChange={(e) => setRememberMe(e.target.checked)}
+                 className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-accent dark:border-slate-600 dark:bg-slate-700 dark:checked:bg-accent"
+               />
                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 dark:text-slate-400">Remember me</label>
              </div>
              <div className="text-sm">
@@ -146,3 +162,4 @@ export default function Login() {
     </div>
   );
 }
+
