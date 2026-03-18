@@ -29,6 +29,8 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
     personalLeaveBalance: '5'
   });
   const [ageError, setAgeError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [emergencyPhoneError, setEmergencyPhoneError] = useState<string | null>(null);
 
   const { data: departments = [], isLoading: departmentsLoading } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['departments'],
@@ -73,11 +75,19 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
       });
     }
     setAgeError(null);
+    setPhoneError(null);
+    setEmergencyPhoneError(null);
   }, [initialData, isOpen, departments]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const validatePhilippinesPhone = (phone: string) => {
+    if (!phone) return true;
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    return /^(\+63|0)[2-9]\d{7,10}$/.test(cleanPhone);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -92,14 +102,37 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
       age--;
     }
 
+    let hasError = false;
+
     if (age < 18) {
       setAgeError("Employee must be at least 18 years old.");
-      const dobInput = document.getElementsByName('dateOfBirth')[0];
-      if (dobInput) (dobInput as HTMLElement).focus();
+      hasError = true;
+    } else {
+      setAgeError(null);
+    }
+
+    if (!validatePhilippinesPhone(formData.phone)) {
+      setPhoneError("Please enter a valid Philippines phone number (e.g. 0917 123 4567)");
+      hasError = true;
+    } else {
+      setPhoneError(null);
+    }
+
+    if (!validatePhilippinesPhone(formData.emergencyContactPhone)) {
+      setEmergencyPhoneError("Please enter a valid Philippines phone number (e.g. 0917 123 4567)");
+      hasError = true;
+    } else {
+      setEmergencyPhoneError(null);
+    }
+
+    if (hasError) {
+      // Focus the first error
+      if (age < 18) document.getElementsByName('dateOfBirth')[0]?.focus();
+      else if (!validatePhilippinesPhone(formData.phone)) document.getElementsByName('phone')[0]?.focus();
+      else if (!validatePhilippinesPhone(formData.emergencyContactPhone)) document.getElementsByName('emergencyContactPhone')[0]?.focus();
       return;
     }
 
-    setAgeError(null);
     onSave({
       ...formData,
       salary: parseFloat(formData.salary),
@@ -168,11 +201,11 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>First Name *</label>
-              <input required type="text" name="firstName" value={formData.firstName} onChange={handleChange} className={inputClass} />
+              <input required type="text" name="firstName" value={formData.firstName} onChange={handleChange} className={inputClass} placeholder="e.g. Juan" />
             </div>
             <div>
               <label className={labelClass}>Last Name *</label>
-              <input required type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputClass} />
+              <input required type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputClass} placeholder="e.g. Dela Cruz" />
             </div>
           </div>
 
@@ -204,16 +237,24 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Phone</label>
-              <input type="text" name="phone" value={formData.phone} onChange={handleChange} className={inputClass} />
+              <input type="text" name="phone" value={formData.phone} 
+                     onChange={(e) => { handleChange(e); setPhoneError(null); }} 
+                     className={cn(inputClass, phoneError ? "border-rose-500 ring-rose-500/10" : "")} 
+                     placeholder="e.g. 0917 123 4567" />
+              {phoneError && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">{phoneError}</p>}
             </div>
             <div>
               <label className={labelClass}>Emergency Phone</label>
-              <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone} onChange={handleChange} className={inputClass} />
+              <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone} 
+                     onChange={(e) => { handleChange(e); setEmergencyPhoneError(null); }} 
+                     className={cn(inputClass, emergencyPhoneError ? "border-rose-500 ring-rose-500/10" : "")}
+                     placeholder="e.g. 0917 123 4567" />
+              {emergencyPhoneError && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">{emergencyPhoneError}</p>}
             </div>
           </div>
           <div>
             <label className={labelClass}>Home Address</label>
-            <input type="text" name="address" value={formData.address} onChange={handleChange} className={inputClass} />
+            <input type="text" name="address" value={formData.address} onChange={handleChange} className={inputClass} placeholder="e.g. 123 Makati Ave, Manila" />
           </div>
         </div>
 
@@ -224,16 +265,16 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
           </h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className={labelClass}>Annual</label>
-              <input type="number" min="0" name="annualLeaveBalance" value={formData.annualLeaveBalance} onChange={handleChange} className={inputClass} />
+              <label className={labelClass}>Annual Leave</label>
+              <input type="number" min="0" name="annualLeaveBalance" value={formData.annualLeaveBalance} onChange={handleChange} className={inputClass} placeholder="e.g. 15" />
             </div>
             <div>
-              <label className={labelClass}>Sick</label>
-              <input type="number" min="0" name="sickLeaveBalance" value={formData.sickLeaveBalance} onChange={handleChange} className={inputClass} />
+              <label className={labelClass}>Sick Leave</label>
+              <input type="number" min="0" name="sickLeaveBalance" value={formData.sickLeaveBalance} onChange={handleChange} className={inputClass} placeholder="e.g. 10" />
             </div>
             <div>
-              <label className={labelClass}>Personal</label>
-              <input type="number" min="0" name="personalLeaveBalance" value={formData.personalLeaveBalance} onChange={handleChange} className={inputClass} />
+              <label className={labelClass}>Personal Leave</label>
+              <input type="number" min="0" name="personalLeaveBalance" value={formData.personalLeaveBalance} onChange={handleChange} className={inputClass} placeholder="e.g. 5" />
             </div>
           </div>
         </div>

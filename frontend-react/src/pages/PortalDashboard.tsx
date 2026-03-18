@@ -8,7 +8,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { BaseModal } from '../components/ui/BaseModal';
 import { useTheme } from '../components/theme-provider';
-import { cn } from '../lib/utils';
+import { cn, formatDateKey, parseLocalDate } from '../lib/utils';
 
 // Types
 interface LeaveRequest {
@@ -94,6 +94,7 @@ export default function PortalDashboard() {
     emergencyContactName: '',
     emergencyContactPhone: ''
   });
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
 
   // Fetch Profile
@@ -209,8 +210,29 @@ export default function PortalDashboard() {
     submitLeave.mutate(leaveForm);
   };
 
+  const validatePhPhone = (phone: string) => {
+    if (!phone) return true;
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    return /^(\+63|0)[2-9]\d{7,10}$/.test(cleanPhone);
+  };
+
   const handleProfileChangeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const errors: Record<string, string> = {};
+    if (!validatePhPhone(profileChangeForm.phone)) {
+      errors.phone = "Invalid Philippines phone format.";
+    }
+    if (!validatePhPhone(profileChangeForm.emergencyContactPhone)) {
+      errors.emergencyContactPhone = "Invalid Philippines phone format.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setProfileErrors(errors);
+      return;
+    }
+
+    setProfileErrors({});
     submitProfileChange.mutate(profileChangeForm);
   };
 
@@ -244,11 +266,10 @@ export default function PortalDashboard() {
   const approvedLeaveDays = useMemo(() => {
     const days = new Set<string>();
     leaves.filter(l => l.status === 'APPROVED').forEach(l => {
-      const start = new Date(l.startDate);
-      const end = new Date(l.endDate);
+      const start = parseLocalDate(l.startDate);
+      const end = parseLocalDate(l.endDate);
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = d.toISOString().split('T')[0];
-        days.add(key);
+        days.add(formatDateKey(d));
       }
     });
     return days;
@@ -264,7 +285,7 @@ export default function PortalDashboard() {
     const cells: { day: number | null; dateKey?: string }[] = [];
     for (let i = 0; i < startWeekday; i++) cells.push({ day: null });
     for (let day = 1; day <= daysInMonth; day++) {
-      const dateKey = new Date(year, month, day).toISOString().split('T')[0];
+      const dateKey = formatDateKey(new Date(year, month, day));
       cells.push({ day, dateKey });
     }
     return { year, month, cells };
@@ -409,7 +430,7 @@ export default function PortalDashboard() {
               {calendar.cells.map((cell, idx) => {
                 if (!cell.day) return <div key={idx} className="h-10" />;
                 const isLeave = cell.dateKey ? approvedLeaveDays.has(cell.dateKey) : false;
-                const isToday = cell.dateKey === new Date().toISOString().split('T')[0];
+                const isToday = cell.dateKey === formatDateKey(new Date());
                 return (
                   <div
                     key={idx}
@@ -695,17 +716,24 @@ export default function PortalDashboard() {
             <input
               type="text"
               value={profileChangeForm.phone}
-              placeholder="e.g. +1 234 567 890"
-              onChange={e => setProfileChangeForm({ ...profileChangeForm, phone: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              placeholder="e.g. 0917 123 4567"
+              onChange={e => {
+                setProfileChangeForm({ ...profileChangeForm, phone: e.target.value });
+                setProfileErrors(prev => ({ ...prev, phone: '' }));
+              }}
+              className={cn(
+                "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all",
+                profileErrors.phone ? "border-rose-500 ring-rose-500/10" : "border-slate-100 dark:border-slate-700"
+              )}
             />
+            {profileErrors.phone && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1">{profileErrors.phone}</p>}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Address</label>
             <input
               type="text"
               value={profileChangeForm.address}
-              placeholder="Your current residential address"
+              placeholder="e.g. 123 Makati Ave, Manila"
               onChange={e => setProfileChangeForm({ ...profileChangeForm, address: e.target.value })}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
             />
@@ -716,6 +744,7 @@ export default function PortalDashboard() {
               <input
                 type="text"
                 value={profileChangeForm.emergencyContactName}
+                placeholder="e.g. Maria Clara"
                 onChange={e => setProfileChangeForm({ ...profileChangeForm, emergencyContactName: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               />
@@ -725,9 +754,17 @@ export default function PortalDashboard() {
               <input
                 type="text"
                 value={profileChangeForm.emergencyContactPhone}
-                onChange={e => setProfileChangeForm({ ...profileChangeForm, emergencyContactPhone: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                placeholder="e.g. 0917 123 4567"
+                onChange={e => {
+                  setProfileChangeForm({ ...profileChangeForm, emergencyContactPhone: e.target.value });
+                  setProfileErrors(prev => ({ ...prev, emergencyContactPhone: '' }));
+                }}
+                className={cn(
+                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all",
+                  profileErrors.emergencyContactPhone ? "border-rose-500 ring-rose-500/10" : "border-slate-100 dark:border-slate-700"
+                )}
               />
+              {profileErrors.emergencyContactPhone && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1">{profileErrors.emergencyContactPhone}</p>}
             </div>
           </div>
           <div className="pt-4 flex justify-end gap-3">

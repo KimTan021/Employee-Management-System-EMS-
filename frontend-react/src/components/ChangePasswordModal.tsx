@@ -84,6 +84,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
               value={form.currentPassword}
               onChange={e => setForm({ ...form, currentPassword: e.target.value })}
               className={inputClass}
+              placeholder="Enter your current password"
             />
           </div>
           <div className="h-px bg-slate-100 dark:bg-slate-800 my-2" />
@@ -108,6 +109,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
               value={form.confirmPassword}
               onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
               className={inputClass}
+              placeholder="Retype your new password"
             />
           </div>
         </div>
