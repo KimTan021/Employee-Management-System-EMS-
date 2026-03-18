@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useToast } from './ToastContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { BaseModal } from './ui/BaseModal';
+import { ConfirmationModal } from './ui/ConfirmationModal';
 
 interface Document {
   id: number;
@@ -20,6 +21,12 @@ export default function DocumentModal({ isOpen, onClose, employeeId, employeeNam
   const queryClient = useQueryClient();
   const { role, username } = useAuthStore();
   const maxUploadBytes = 10 * 1024 * 1024;
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; documentId: number | null; fileName: string }>({
+    isOpen: false,
+    documentId: null,
+    fileName: ''
+  });
 
   // Fetch Documents
   const { data: documents = [], isLoading } = useQuery<Document[]>({
@@ -202,9 +209,11 @@ export default function DocumentModal({ isOpen, onClose, employeeId, employeeNam
                     {(role === 'ADMIN' || (role === 'HR_MANAGER' && doc.uploadedBy === username)) && (
                       <button
                         onClick={() => {
-                          if(confirm('Delete this record irreversibly?')) {
-                            deleteMutation.mutate(doc.id);
-                          }
+                          setDeleteConfirm({
+                            isOpen: true,
+                            documentId: doc.id,
+                            fileName: doc.fileName
+                          });
                         }}
                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"
                         title="Destroy"
@@ -219,6 +228,22 @@ export default function DocumentModal({ isOpen, onClose, employeeId, employeeNam
           )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => {
+          if (deleteConfirm.documentId) {
+            deleteMutation.mutate(deleteConfirm.documentId);
+            setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+          }
+        }}
+        title="Destroy Document"
+        message={`Are you sure you want to irreversibly destroy "${deleteConfirm.fileName}"? This action cannot be undone.`}
+        confirmLabel="Destroy Record"
+        isLoading={deleteMutation.isPending}
+        variant="danger"
+      />
     </BaseModal>
   );
 }
