@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { BaseModal } from '../components/ui/BaseModal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { cn } from '../lib/utils';
+import { exportEmployeesToPDF } from '../lib/pdfExport';
 
 interface Employee {
   id: number;
@@ -47,6 +48,7 @@ interface LeaveRequest {
 interface Department {
   id: number;
   name: string;
+  employeeCount: number;
 }
 
 interface ProfileChangeRequest {
@@ -274,6 +276,30 @@ export default function HRDashboard() {
     showToast('CSV exported successfully', 'success');
   };
 
+  const handleExportPDF = () => {
+    if (!filteredEmployees || filteredEmployees.length === 0) {
+      showToast('No data to export', 'info');
+      return;
+    }
+    
+    if (!stats) {
+      showToast('Statistics not loaded', 'error');
+      return;
+    }
+
+    exportEmployeesToPDF(
+      filteredEmployees, 
+      {
+        totalEmployees: stats.totalEmployees,
+        averageSalary: stats.averageSalary,
+        averageAge: stats.averageAge,
+        departmentCount: stats.departmentCount
+      }, 
+      'HR Dashboard: Employee Directory'
+    );
+    showToast('PDF report generated', 'success');
+  };
+
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
       const searchLower = searchQuery.toLowerCase();
@@ -317,6 +343,15 @@ export default function HRDashboard() {
   );
 
   const pendingCount = leaves.filter(l => l.status === 'PENDING').length;
+  const pendingProfileChangesCount = profileChanges.filter(pc => pc.status === 'PENDING').length;
+
+  const sortedProfileChanges = useMemo(() => {
+    return [...profileChanges].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [profileChanges]);
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
   const departmentStats = useMemo(() => {
@@ -422,7 +457,7 @@ export default function HRDashboard() {
           {[
             { id: 'employees', label: 'Employees' },
             { id: 'leaves', label: 'Leave Requests', count: pendingCount },
-            { id: 'profileChanges', label: 'Profile Changes' },
+            { id: 'profileChanges', label: 'Profile Changes', count: pendingProfileChangesCount },
             { id: 'departments', label: 'Departments' }
           ].map(tab => (
             <button 
@@ -541,6 +576,13 @@ export default function HRDashboard() {
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                       Add New
+                    </button>
+                    <button 
+                      onClick={handleExportPDF}
+                      className="p-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-2xl text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all active:scale-95 flex items-center justify-center"
+                      title="Export PDF"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                     </button>
                     <button 
                       onClick={handleExportCSV}
@@ -832,7 +874,7 @@ export default function HRDashboard() {
                   ) : profileChanges.length === 0 ? (
                     <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500">No pending profile changes.</td></tr>
                   ) : (
-                    profileChanges.map(req => (
+                    sortedProfileChanges.map(req => (
                       <tr key={req.id} className="bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900 transition-all rounded-3xl shadow-sm hover:shadow-md border border-transparent hover:border-slate-100 dark:hover:border-slate-700/50">
                         <td className="px-6 py-4 rounded-l-3xl">
                           <span className="font-semibold text-slate-900 dark:text-white">{req.employeeName}</span>
@@ -913,16 +955,27 @@ export default function HRDashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {departments.map(dept => (
-                  <div key={dept.id} className="group relative p-6 bg-slate-50/50 dark:bg-slate-900/30 rounded-3xl border border-slate-100 dark:border-slate-800 transition-all hover:border-purple-200 dark:hover:border-purple-900/30 hover:shadow-xl hover:shadow-purple-500/5">
+                  <div 
+                    key={dept.id} 
+                    onClick={() => { setActiveTab('employees'); setDepartmentFilter(dept.name); }}
+                    className="group relative p-6 bg-slate-50/50 dark:bg-slate-900/30 rounded-3xl border border-slate-100 dark:border-slate-800 transition-all hover:border-purple-200 dark:hover:border-purple-900/30 hover:shadow-xl hover:shadow-purple-500/5 cursor-pointer"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-purple-600 font-bold text-xs">
+                        <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-purple-600 font-bold text-xs ring-1 ring-purple-100 dark:ring-purple-900/50">
                           {dept.name.substring(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-bold text-slate-700 dark:text-slate-200 text-sm tracking-tight">{dept.name}</span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-700 dark:text-slate-200 text-sm tracking-tight">{dept.name}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{dept.employeeCount || 0} {dept.employeeCount === 1 ? 'member' : 'members'}</span>
+                            <span className="text-[10px] text-purple-500 dark:text-purple-400 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity translate-x-1 group-hover:translate-x-0 transform duration-300">· View All</span>
+                          </div>
+                        </div>
                       </div>
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setConfirmation({
                             isOpen: true,
                             title: 'Dissolve Department',

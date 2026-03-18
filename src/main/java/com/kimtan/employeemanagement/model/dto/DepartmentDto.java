@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class DepartmentDto {
     private Integer id;
     private String name;
+    private Long employeeCount;
 }

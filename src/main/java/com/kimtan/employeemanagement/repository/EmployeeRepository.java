@@ -18,4 +18,5 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     boolean existsByDepartmentIdAndActiveTrue(Integer departmentId);
     boolean existsByDepartmentId(Integer departmentId);
+    long countByDepartmentIdAndActiveTrue(Integer departmentId);
 }

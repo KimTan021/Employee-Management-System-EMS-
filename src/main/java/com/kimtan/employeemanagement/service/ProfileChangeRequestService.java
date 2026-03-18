@@ -8,6 +8,7 @@ import com.kimtan.employeemanagement.model.entity.ProfileChangeRequest;
 import com.kimtan.employeemanagement.repository.EmployeeRepository;
 import com.kimtan.employeemanagement.repository.ProfileChangeRequestRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,14 +45,14 @@ public class ProfileChangeRequestService {
 
     @Transactional(readOnly = true)
     public List<ProfileChangeRequestDto> getRequestsForEmployee(Long employeeId) {
-        return repository.findByEmployeeId(employeeId).stream()
+        return repository.findByEmployeeIdOrderByCreatedAtDesc(employeeId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<ProfileChangeRequestDto> getAllRequests() {
-        return repository.findAll().stream()
+        return repository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }

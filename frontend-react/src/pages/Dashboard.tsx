@@ -9,6 +9,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useTheme } from '../components/theme-provider';
 import { useToast } from '../components/ToastContext';
 import { cn } from '../lib/utils';
+import { exportEmployeesToPDF } from '../lib/pdfExport';
 
 // Types
 interface Employee {
@@ -100,6 +101,25 @@ export default function Dashboard() {
     });
     return Object.keys(counts).map(dept => ({ name: dept, value: counts[dept] }));
   }, [employees]);
+
+  const handleExportPDF = () => {
+    if (!filteredEmployees || filteredEmployees.length === 0) {
+      showToast('No data to export', 'info');
+      return;
+    }
+    
+    if (!stats) {
+      showToast('Statistics not loaded', 'error');
+      return;
+    }
+
+    exportEmployeesToPDF(
+      filteredEmployees, 
+      stats, 
+      'Admin Dashboard: Employee Directory'
+    );
+    showToast('PDF report generated', 'success');
+  };
 
   const handleExportCSV = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
@@ -284,6 +304,9 @@ export default function Dashboard() {
                         className="w-full pl-4 pr-10 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-full text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all" />
                       <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
+                    <button onClick={handleExportPDF} className="p-2 text-slate-400 hover:text-rose-500 transition-colors" title="Export PDF">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    </button>
                     <button onClick={handleExportCSV} className="p-2 text-slate-400 hover:text-rose-500 transition-colors" title="Export CSV">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     </button>

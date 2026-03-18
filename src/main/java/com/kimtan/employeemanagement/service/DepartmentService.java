@@ -60,6 +60,7 @@ public class DepartmentService {
         return DepartmentDto.builder()
                 .id(department.getId())
                 .name(department.getName())
+                .employeeCount(employeeRepository.countByDepartmentIdAndActiveTrue(department.getId()))
                 .build();
     }
 }
