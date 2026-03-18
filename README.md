@@ -1,87 +1,80 @@
 # Employee Management System
 
-A robust, full-stack Employee Management System built with Java Spring Boot and React. The application provides a secure, role-based platform for organization-wide employee management, document handling, leave requests, and comprehensive audit tracking.
+A sophisticated, full-stack enterprise solution for modern workforce management. Built with Java Spring Boot and React, this system offers a secure, role-based platform for managing the entire employee lifecycle—from onboarding and documentation to leave management and audit compliance.
 
-## 🚀 Features
+## 🚀 Key Modules & Features
 
-### 🔐 Role-Based Experience
-The system provides tailored interfaces based on user roles:
-- **Admin Dashboard**: Full system control including user management, role assignments, and global settings.
-- **HR Manager Portal**: Specialized tools for employee lifecycle management, document oversight, and leave approvals.
-- **Employee Self-Service**: Personal dashboard for viewing profiles, requesting information changes, and managing leave requests.
+### 🔐 Multi-Role Specialized Portals
+- **Admin Command Center**: Complete system oversight, user account provisioning with role assignments (Admin, HR, Employee), and database maintenance.
+- **HR Strategic Dashboard**: 
+    - **Workforce Directory**: Advanced management with automated `EMP-ID` generation and age validation.
+    - **Approval Workflows**: Centralized hubs for reviewing Leave Requests and Profile Change proposals.
+    - **Data Intelligence**: Visual department analytics and real-time statistics (Avg Salary, Age, Headcount).
+- **Employee Self-Service Portal**: Personal dashboard for profile management, leave tracking, and secure document access.
 
-### 📦 Key Modules
-- **Employee Management**: Comprehensive CRUD operations for employee records with detailed personal and professional data.
-- **Document Management**: Secure file upload, storage, and retrieval system for employee-related documents (contracts, IDs, etc.).
-- **Leave Management**: End-to-end workflow for submitting, tracking, and approving/rejecting leave requests.
-- **Audit Logging**: Automated system-wide tracking of all sensitive actions, providing a transparent history of entity changes.
-- **Profile Change Requests**: Workflow allowing employees to propose updates to their information, subject to HR/Admin approval.
-- **Workforce Analytics**: Real-time statistics including salary distributions, age demographics, and department metrics.
-
-### 🛠️ Technical Highlights
-- **Backend (Spring Boot)**: JWT-based security, Spring Security role-based access control, Flyway database migrations, and MapStruct DTO mapping.
-- **Frontend (React)**: Modern UI with Vite and Tailwind CSS 4, Zustand for state management, and TanStack React Query for efficient data synchronization.
+### 📦 Core Functionality
+- **Employee Lifecycle**: 
+    - **Soft Delete/Restore**: Deactivate employees while preserving history, with the ability to restore access instantly.
+    - **Permanent Cleanup**: Securely purge employee data, including physical files, documents, and system records.
+- **Document Management System**: Enterprise-grade file handling for contracts and IDs with role-based download permissions.
+- **Leave Management Workflow**: End-to-end digital requests with real-time status tracking (Pending, Approved, Rejected).
+- **Audit & Compliance**: Automated event logging for every system action (Create, Update, Deactivate, Restore), ensuring a transparent trail of modifications.
+- **Reporting & Data Portability**: Instant export of workforce data to **PDF Reports** and **CSV Spreadsheets** for offline analysis.
 
 ## 🛠️ Tech Stack
 
-**Backend:**
-- Java 25
-- Spring Boot 4.x
-- MySQL
-- Flyway (Database Migrations)
-- JWT (JSON Web Tokens)
-- Hibernate / Spring Data JPA
-- MapStruct & Lombok
+### Backend
+- **Core**: Java 25 & Spring Boot 4.x
+- **Persistence**: MySQL with Spring Data JPA & Hibernate
+- **Migrations**: Flyway (Automated schema versioning)
+- **Security**: JWT (Stateless authentication) & Spring Security RBAC
+- **Ops**: Maven Architecture
 
-**Frontend:**
-- React 19
-- Vite
-- TypeScript
-- Tailwind CSS 4
-- Zustand
-- TanStack React Query
-- Axios
-- Lucide React (Icons)
+### Frontend
+- **Framework**: React 19 (Vite)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS 4 with Premium Mesh Gradient Design
+- **State/Data**: Zustand & TanStack React Query
+- **Visualization**: Recharts (Interactive Analytics)
+- **Icons**: Lucide React
 
 ## 📋 Prerequisites
 
-- **Java Development Kit (JDK) 25**
-- **Node.js** (v18+)
+- **JDK 25**
+- **Node.js (v18+)**
 - **MySQL Server**
-- **Maven** (or use the included `./mvnw`)
+- **Maven** (optional, `./mvnw` included)
 
-## ⚙️ Setup and Installation
+## ⚙️ Quick Start
 
-### 1. Database Configuration
-Ensure MySQL is running. The application uses Flyway to manage schema automatically.
-Default config:
-- **DB Name**: `emp_db`
-- **User/Password**: `root` / `admin`
-- **URL**: `jdbc:mysql://localhost:3306/emp_db`
+### 1. Database
+Create a database named `emp_db`. The system handles schema creation via Flyway.
+*Default: root / admin*
 
-### 2. Running the Application
-**Backend**:
+### 2. Backend
 ```bash
 ./mvnw spring-boot:run
 ```
 
-**Frontend**:
+### 3. Frontend
 ```bash
 cd frontend-react
 npm install
 npm run dev
 ```
 
-## 🖇️ API Endpoints Summary
+## 🖇️ API Architecture Summary
 
-### Core Services
-- `/api/auth` - Authentication & Registration
-- `/api/employees` - Employee Records & Statistics
-- `/api/departments` - Organization Structure
+### Public/Auth (`/api/auth`)
+- `POST /login`, `POST /register`
 
-### Management Services
-- `/api/admin/users` - User Account Management (Admin Only)
-- `/api/admin/documents` - Secure Document Handling
-- `/api/admin/audit` - System Audit Trails
-- `/api/profile-changes` - Employee Info Update Requests
-- `/api/leave-requests` - Absence Management
+### Admin/HR Secure Endpoints (`/api/admin`)
+- `/users` - User account management
+- `/documents` - Secure file storage & retrieval
+- `/audit` - System-wide compliance logs
+
+### Core Business Services
+- `/api/employees` - Workforce management (CRUD, Restore, Stats)
+- `/api/departments` - Organization structure
+- `/api/leave-requests` - Absence management
+- `/api/profile-changes` - Information update workflows

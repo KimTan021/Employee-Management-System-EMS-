@@ -134,7 +134,7 @@ class EmployeeControllerWebMvcTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details", hasItem(containsString("empId"))));
+                .andExpect(jsonPath("$.details", hasItem(containsString("firstName"))));
     }
 
     @Test

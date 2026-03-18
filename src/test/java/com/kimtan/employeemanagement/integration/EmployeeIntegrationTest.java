@@ -65,7 +65,7 @@ class EmployeeIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.empId").value("EMP-100"))
+                .andExpect(jsonPath("$.empId").value("EMP-101"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -74,7 +74,7 @@ class EmployeeIntegrationTest {
 
         mockMvc.perform(get("/api/employees/" + created.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.empId").value("EMP-100"))
+                .andExpect(jsonPath("$.empId").value("EMP-101"))
                 .andExpect(jsonPath("$.departmentName").value("Engineering"));
     }
 
