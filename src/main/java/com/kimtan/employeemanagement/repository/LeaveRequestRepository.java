@@ -11,4 +11,5 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     List<LeaveRequest> findAllByOrderByCreatedAtDesc();
     List<LeaveRequest> findByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
     List<LeaveRequest> findByEmployeeIdAndStatusOrderByCreatedAtDesc(Long employeeId, String status);
+    void deleteByEmployeeId(Long employeeId);
 }

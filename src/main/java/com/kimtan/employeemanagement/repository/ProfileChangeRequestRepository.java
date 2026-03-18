@@ -10,4 +10,5 @@ import java.util.List;
 public interface ProfileChangeRequestRepository extends JpaRepository<ProfileChangeRequest, Long> {
     List<ProfileChangeRequest> findByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
     List<ProfileChangeRequest> findAllByOrderByCreatedAtDesc();
+    void deleteByEmployeeId(Long employeeId);
 }

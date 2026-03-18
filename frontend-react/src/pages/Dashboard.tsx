@@ -10,6 +10,8 @@ import { useTheme } from '../components/theme-provider';
 import { useToast } from '../components/ToastContext';
 import { cn } from '../lib/utils';
 import { exportEmployeesToPDF } from '../lib/pdfExport';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Types
 interface Employee {
@@ -34,9 +36,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { theme, setTheme } = useTheme();
+  const queryClient = useQueryClient();
 
   const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users'>('users');
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [showDeactivated, setShowDeactivated] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,9 +51,9 @@ export default function Dashboard() {
 
   // Fetch Employees
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
-    queryKey: ['employees'],
+    queryKey: ['employees', showDeactivated],
     queryFn: async () => {
-      const { data } = await api.get('/employees');
+      const { data } = await api.get(`/employees?active=${!showDeactivated}`);
       return data;
     },
   });
@@ -142,6 +148,22 @@ export default function Dashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDeletePermanent = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/employees/${deleteId}/permanent`);
+      showToast('Employee permanently deleted', 'success');
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      setDeleteId(null);
+    } catch (error) {
+      showToast('Error deleting employee', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -295,6 +317,20 @@ export default function Dashboard() {
                <div className="p-8 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <h2 className="text-xl font-semibold font-display text-slate-900 dark:text-white">Internal Directory</h2>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Active/Inactive Toggle */}
+                    <button 
+                      onClick={() => setShowDeactivated(!showDeactivated)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all border",
+                        showDeactivated 
+                          ? "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400"
+                          : "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400"
+                      )}
+                    >
+                      <div className={cn("w-2 h-2 rounded-full animate-pulse", showDeactivated ? "bg-amber-500" : "bg-emerald-500")}></div>
+                      {showDeactivated ? 'Inactive Pool' : 'Active Staff'}
+                    </button>
+
                     <div className="relative flex-1">
                       <input 
                         type="text" 
@@ -348,8 +384,21 @@ export default function Dashboard() {
                               <div className="flex items-center gap-4">
                                 <span className="text-slate-500 dark:text-slate-400 text-xs">Age: <span className="text-slate-900 dark:text-white font-medium">{calculateAge(emp.dateOfBirth)}</span></span>
                                 <span className="text-slate-500 dark:text-slate-400 text-xs">Salary: <span className="text-slate-900 dark:text-white font-medium">${emp.salary.toLocaleString()}</span></span>
+                                
+                                {showDeactivated && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteId(emp.id);
+                                    }}
+                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-lg transition-colors ml-auto"
+                                    title="Permanently Delete"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  </button>
+                                )}
                               </div>
-                           </td>
+                            </td>
                          </tr>
                        ))
                      )}
@@ -372,6 +421,17 @@ export default function Dashboard() {
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+      <ConfirmationModal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDeletePermanent}
+        title="Permanent Deletion"
+        message="Are you sure you want to permanently delete this employee? This will irreversibly remove all associated files, leave requests, and user account data. This action cannot be undone."
+        confirmLabel="Permanent Delete"
+        variant="danger"
+        isLoading={isDeleting}
       />
     </div>
   );

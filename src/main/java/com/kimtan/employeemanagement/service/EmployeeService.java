@@ -5,17 +5,20 @@ import com.kimtan.employeemanagement.mapper.EmployeeMapper;
 import com.kimtan.employeemanagement.model.dto.DashboardStatsDto;
 import com.kimtan.employeemanagement.model.dto.EmployeeRequest;
 import com.kimtan.employeemanagement.model.dto.EmployeeResponse;
-import com.kimtan.employeemanagement.model.entity.Department;
-import com.kimtan.employeemanagement.model.entity.Employee;
-import com.kimtan.employeemanagement.repository.DepartmentRepository;
-import com.kimtan.employeemanagement.repository.EmployeeRepository;
+import com.kimtan.employeemanagement.model.entity.*;
+import com.kimtan.employeemanagement.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
@@ -28,9 +31,16 @@ public class EmployeeService implements EmployeeProcessingService {
 
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final ProfileChangeRequestRepository profileChangeRequestRepository;
+    private final DocumentRepository documentRepository;
+    private final UserRepository userRepository;
     private final EmployeeMapper employeeMapper;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${upload.directory:uploads}")
+    private String uploadDirectory;
 
     @Transactional(readOnly = true)
     public List<EmployeeResponse> getAllEmployees(Boolean activeOnly) {
@@ -129,6 +139,53 @@ public class EmployeeService implements EmployeeProcessingService {
         try {
             String newValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee));
             auditLogService.logAction("EMPLOYEE", id, "DEACTIVATE", oldValue, newValue, getCurrentUsername());
+        } catch (Exception e) {}
+    }
+
+    @Transactional
+    public void permanentlyDeleteEmployee(Long id) {
+        Employee employee = getEmployeeEntity(id);
+        
+        if (Boolean.TRUE.equals(employee.getActive())) {
+            throw new IllegalStateException("Cannot permanently delete an active employee. Deactivate them first.");
+        }
+
+        String oldValue = null;
+        try { oldValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee)); } catch (Exception e) {}
+
+        // 1. Delete Documents (and physical files)
+        List<Document> documents = documentRepository.findByEmployeeIdOrderByUploadedAtDesc(id);
+        for (Document doc : documents) {
+            try {
+                Path fileStorageLocation = Paths.get(uploadDirectory).toAbsolutePath().normalize();
+                Path filePath = fileStorageLocation.resolve(doc.getFilePath()).normalize();
+                Files.deleteIfExists(filePath);
+            } catch (IOException e) {
+                // Log but continue
+            }
+            documentRepository.delete(doc);
+        }
+
+        // 2. Delete Leave Requests
+        leaveRequestRepository.deleteByEmployeeId(id);
+
+        // 3. Delete Profile Change Requests
+        profileChangeRequestRepository.deleteByEmployeeId(id);
+
+        // 4. Delete associated User if exists
+        User user = employee.getUser();
+        if (user != null) {
+            employee.setUser(null);
+            employeeRepository.saveAndFlush(employee);
+            userRepository.delete(user);
+        }
+
+        // 5. Finally delete the employee
+        employeeRepository.delete(employee);
+
+        // 6. Log
+        try {
+            auditLogService.logAction("EMPLOYEE", id, "PERMANENT_DELETE", oldValue, null, getCurrentUsername());
         } catch (Exception e) {}
     }
 

@@ -59,6 +59,13 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.restoreEmployee(id));
     }
 
+    @DeleteMapping("/{id}/permanent")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> permanentlyDeleteEmployee(@PathVariable Long id) {
+        employeeService.permanentlyDeleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/statistics")
     public ResponseEntity<DashboardStatsDto> getDashboardStats() {
         return ResponseEntity.ok(employeeService.getDashboardStats());
