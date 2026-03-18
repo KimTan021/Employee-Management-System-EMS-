@@ -186,9 +186,16 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Employee ID *</label>
-              <input required type="text" name="empId" value={formData.empId} onChange={handleChange}
-                     className={inputClass} placeholder="e.g. EMP-101" disabled={!!initialData} />
+              <label className={labelClass}>Employee ID {initialData ? '*' : '(Auto)'}</label>
+              <input 
+                type="text" 
+                name="empId" 
+                value={initialData ? formData.empId : 'System Generated'} 
+                onChange={handleChange}
+                className={cn(inputClass, "bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed opacity-70")} 
+                placeholder="EMP-XXX" 
+                disabled={true} 
+              />
             </div>
             <div>
               <label className={labelClass}>Date of Birth *</label>

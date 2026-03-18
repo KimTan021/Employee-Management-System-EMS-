@@ -61,13 +61,14 @@ public class EmployeeService implements EmployeeProcessingService {
     @Transactional
     public EmployeeResponse createEmployee(EmployeeRequest request) {
         validateAge(request.getDateOfBirth());
-        if (employeeRepository.existsByEmpId(request.getEmpId())) {
-            throw new IllegalArgumentException("Employee ID already exists: " + request.getEmpId());
-        }
-
+        
+        // Automate ID generation
+        String generatedId = generateNextEmpId();
+        
         Department department = getDepartmentByName(request.getDepartmentName());
         
         Employee employee = employeeMapper.toEntity(request);
+        employee.setEmpId(generatedId);
         employee.setDepartment(department);
         if (employee.getActive() == null) {
             employee.setActive(true);
@@ -228,5 +229,27 @@ public class EmployeeService implements EmployeeProcessingService {
         if (dateOfBirth.isAfter(minimumDate)) {
             throw new IllegalArgumentException("Employee must be at least 18 years old.");
         }
+    }
+
+    private String generateNextEmpId() {
+        List<Employee> allEmployees = employeeRepository.findAll();
+        int maxId = 100; // Starting sequence
+        
+        for (Employee emp : allEmployees) {
+            String empId = emp.getEmpId();
+            if (empId != null && empId.startsWith("EMP-")) {
+                try {
+                    String numericPart = empId.substring(4);
+                    int idValue = Integer.parseInt(numericPart);
+                    if (idValue > maxId) {
+                        maxId = idValue;
+                    }
+                } catch (NumberFormatException e) {
+                    // Ignore non-standard formats
+                }
+            }
+        }
+        
+        return "EMP-" + (maxId + 1);
     }
 }

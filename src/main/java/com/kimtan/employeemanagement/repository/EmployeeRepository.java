@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     boolean existsByEmpId(String empId);
+    java.util.Optional<Employee> findTopByOrderByEmpIdDesc();
     List<Employee> findByDepartmentId(Integer departmentId);
     java.util.Optional<Employee> findByUserUsername(String username);
     java.util.Optional<Employee> findByUserUsernameAndActiveTrue(String username);
