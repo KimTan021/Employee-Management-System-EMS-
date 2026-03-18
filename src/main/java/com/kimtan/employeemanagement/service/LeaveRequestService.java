@@ -11,6 +11,7 @@ import com.kimtan.employeemanagement.repository.LeaveRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,6 +27,15 @@ public class LeaveRequestService {
     public LeaveRequestDto createLeaveRequest(LeaveRequestDto requestDto) {
         Employee employee = employeeRepository.findById(requestDto.getEmployeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + requestDto.getEmployeeId()));
+
+        // Date validation
+        LocalDate today = LocalDate.now();
+        if (requestDto.getStartDate().isBefore(today)) {
+            throw new IllegalArgumentException("Leave start date cannot be in the past.");
+        }
+        if (requestDto.getEndDate().isBefore(requestDto.getStartDate())) {
+            throw new IllegalArgumentException("Leave end date must be on or after the start date.");
+        }
 
         LeaveRequest leaveRequest = leaveRequestMapper.toEntity(requestDto);
         leaveRequest.setEmployee(employee);

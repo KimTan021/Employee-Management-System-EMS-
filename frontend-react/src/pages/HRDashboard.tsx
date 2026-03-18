@@ -155,7 +155,12 @@ export default function HRDashboard() {
   const updateProfileChangeStatus = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       api.put(`/profile-changes/${id}/status?status=${status}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profileChanges'] }); showToast('Profile change updated', 'success'); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profileChanges'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      showToast('Profile change updated', 'success');
+    },
     onError: (err: any) => showToast(err.response?.data?.message || 'Error updating request', 'error'),
   });
 
@@ -164,6 +169,7 @@ export default function HRDashboard() {
     mutationFn: (data: any) => api.post('/employees', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setIsEmployeeModalOpen(false);
       setSelectedEmployee(null);
       showToast('Employee created successfully', 'success');
@@ -175,6 +181,7 @@ export default function HRDashboard() {
     mutationFn: ({ id, data }: { id: number; data: any }) => api.put(`/employees/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setIsEmployeeModalOpen(false);
       setSelectedEmployee(null);
       showToast('Employee updated', 'success');
@@ -186,6 +193,7 @@ export default function HRDashboard() {
     mutationFn: (id: number) => api.delete(`/employees/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       showToast('Employee deactivated', 'info');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
@@ -196,6 +204,7 @@ export default function HRDashboard() {
     mutationFn: (id: number) => api.put(`/employees/${id}/restore`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       showToast('Employee restored', 'success');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },

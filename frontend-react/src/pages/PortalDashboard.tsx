@@ -198,10 +198,18 @@ export default function PortalDashboard() {
       showToast('Please select both start and end dates.', 'error');
       return;
     }
-    if (new Date(leaveForm.endDate) < new Date(leaveForm.startDate)) {
+
+    const today = formatDateKey(new Date());
+    if (leaveForm.startDate < today) {
+      showToast('Leave start date cannot be in the past.', 'error');
+      return;
+    }
+
+    if (leaveForm.endDate < leaveForm.startDate) {
       showToast('End date must be on or after the start date.', 'error');
       return;
     }
+
     if (!leaveForm.type) {
       showToast('Please select a leave type.', 'error');
       return;
