@@ -183,7 +183,7 @@ class EmployeeServiceTest {
 
     @Test
     void deleteEmployee_missingEmployee_throwsNotFound() {
-        when(employeeRepository.existsById(10L)).thenReturn(false);
+        when(employeeRepository.findById(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> employeeService.deleteEmployee(10L))
                 .isInstanceOf(ResourceNotFoundException.class)

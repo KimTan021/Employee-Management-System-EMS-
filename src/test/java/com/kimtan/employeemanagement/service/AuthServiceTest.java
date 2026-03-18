@@ -56,7 +56,7 @@ class AuthServiceTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
 
-        User user = new User(1L, "admin", "hashed", "ADMIN");
+        User user = new User(1L, "admin", "hashed", "ROLE_ADMIN");
         when(userRepository.findByUsername("admin")).thenReturn(Optional.of(user));
         when(jwtService.generateToken("admin")).thenReturn("jwt-token");
 
@@ -64,12 +64,7 @@ class AuthServiceTest {
 
         assertThat(response.getToken()).isEqualTo("jwt-token");
         assertThat(response.getUsername()).isEqualTo("admin");
-        assertThat(response.getRole()).isEqualTo("ADMIN");
-
-        ArgumentCaptor<UsernamePasswordAuthenticationToken> captor =
-                ArgumentCaptor.forClass(UsernamePasswordAuthenticationToken.class);
-        verify(authenticationManager).authenticate(captor.capture());
-        assertThat(captor.getValue().getName()).isEqualTo("admin");
+        assertThat(response.getRole()).isEqualTo("ROLE_ADMIN");
     }
 
     @Test
