@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { useToast } from './ToastContext';
-import { useModalBehavior } from './shared/useModalBehavior';
+import { BaseModal } from './ui/BaseModal';
+import { ConfirmationModal } from './ui/ConfirmationModal';
 
 interface UserAccount {
   id: number;
@@ -35,13 +36,19 @@ export default function UserManagement() {
     role: 'EMPLOYEE' 
   });
   const [newPassword, setNewPassword] = useState('');
-  const createModalRef = useRef<HTMLDivElement>(null);
-  const resetModalRef = useRef<HTMLDivElement>(null);
-  const createInitialFocusRef = useRef<HTMLInputElement>(null);
-  const resetInitialFocusRef = useRef<HTMLInputElement>(null);
 
-  useModalBehavior({ isOpen: isCreateModalOpen, onClose: () => setIsCreateModalOpen(false), modalRef: createModalRef, initialFocusRef: createInitialFocusRef });
-  useModalBehavior({ isOpen: isResetModalOpen, onClose: () => setIsResetModalOpen(false), modalRef: resetModalRef, initialFocusRef: resetInitialFocusRef });
+  // Confirmation state
+  const [confirmation, setConfirmation] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   // Fetch Users
   const { data: users = [], isLoading } = useQuery<UserAccount[]>({
@@ -78,6 +85,7 @@ export default function UserManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       showToast('Account deleted', 'info');
+      setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
     onError: (err: any) => showToast(err.response?.data?.message || 'Error deleting account', 'error'),
   });
@@ -187,8 +195,15 @@ export default function UserManagement() {
                           {/* Only show delete if target is not admin */}
                           {user.role !== 'ADMIN' && (
                             <button
-                              onClick={() => { if(confirm(`Delete account "${user.username}"?`)) deleteUser.mutate(user.id); }}
-                              className="p-2 text-red-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                              onClick={() => {
+                                setConfirmation({
+                                  isOpen: true,
+                                  title: 'Delete Account',
+                                  message: `Are you sure you want to permanently delete the account for "${user.username}"? This action cannot be undone.`,
+                                  onConfirm: () => deleteUser.mutate(user.id)
+                                });
+                              }}
+                              className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-full transition-colors"
                               title="Delete Account"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -205,136 +220,147 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Create Account Modal */}
-      {isCreateModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setIsCreateModalOpen(false); }}
-        >
-          <div ref={createModalRef} className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-[24px] shadow-2xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                Create User Account
-              </h2>
-            </div>
-            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Fields marked <span className="text-red-500" aria-hidden="true">*</span> are required.
-              </p>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Link to Employee (Optional)</label>
-                <select
-                  value={createForm.employeeId}
-                  onChange={e => setCreateForm({ ...createForm, employeeId: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="">-- No employee link --</option>
-                  {unlinkedEmployees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} ({emp.empId})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Username <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input
-                  ref={createInitialFocusRef}
-                  required
-                  value={createForm.username}
-                  onChange={e => setCreateForm({ ...createForm, username: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="e.g. john.doe"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Initial Password <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input
-                  required
-                  type="password"
-                  minLength={6}
-                  value={createForm.password}
-                  onChange={e => setCreateForm({ ...createForm, password: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Min 6 characters"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Role <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <select
-                  required
-                  value={createForm.role}
-                  onChange={e => setCreateForm({ ...createForm, role: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="EMPLOYEE">Employee</option>
-                  <option value="HR_MANAGER">HR Manager</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </div>
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
-                <button type="button" onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={createUser.isPending}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors shadow-sm disabled:opacity-50">
-                  {createUser.isPending ? 'Creating...' : 'Create Account'}
-                </button>
-              </div>
-            </form>
+      <BaseModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Create User Account"
+        maxWidth="lg"
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            <button 
+              type="button" 
+              onClick={() => setIsCreateModalOpen(false)}
+              className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-2xl font-bold transition-all"
+            >
+              Cancel
+            </button>
+            <button 
+              form="create-user-form"
+              type="submit" 
+              disabled={createUser.isPending}
+              className="px-6 py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-2xl font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            >
+              {createUser.isPending ? 'Creating...' : 'Create Account'}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <form id="create-user-form" onSubmit={handleCreateSubmit} className="space-y-4 py-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Fields marked <span className="text-red-500" aria-hidden="true">*</span> are required.
+          </p>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">Link to Employee (Optional)</label>
+            <select
+              value={createForm.employeeId}
+              onChange={e => setCreateForm({ ...createForm, employeeId: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-slate-300 dark:focus:border-slate-600 rounded-2xl text-slate-700 dark:text-white focus:ring-4 focus:ring-slate-500/5 outline-none transition-all"
+            >
+              <option value="">-- No employee link --</option>
+              {unlinkedEmployees.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} ({emp.empId})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
+              Username <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              required
+              value={createForm.username}
+              onChange={e => setCreateForm({ ...createForm, username: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-slate-300 dark:focus:border-slate-600 rounded-2xl text-slate-700 dark:text-white focus:ring-4 focus:ring-slate-500/5 outline-none transition-all"
+              placeholder="e.g. john.doe"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
+              Initial Password <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              required
+              type="password"
+              minLength={6}
+              value={createForm.password}
+              onChange={e => setCreateForm({ ...createForm, password: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-slate-300 dark:focus:border-slate-600 rounded-2xl text-slate-700 dark:text-white focus:ring-4 focus:ring-slate-500/5 outline-none transition-all"
+              placeholder="Min 6 characters"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
+              Role <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <select
+              required
+              value={createForm.role}
+              onChange={e => setCreateForm({ ...createForm, role: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-slate-300 dark:focus:border-slate-600 rounded-2xl text-slate-700 dark:text-white focus:ring-4 focus:ring-slate-500/5 outline-none transition-all"
+            >
+              <option value="EMPLOYEE">Employee</option>
+              <option value="HR_MANAGER">HR Manager</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+        </form>
+      </BaseModal>
 
-      {/* Reset Password Modal */}
-      {isResetModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) { setIsResetModalOpen(false); setNewPassword(''); } }}
-        >
-          <div ref={resetModalRef} className="w-full max-w-md bg-white dark:bg-slate-800 rounded-[24px] shadow-2xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-white">Reset Password</h2>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); if(selectedUserId) resetPassword.mutate({ id: selectedUserId, newPassword }); }} className="p-6 space-y-4">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Fields marked <span className="text-red-500" aria-hidden="true">*</span> are required.
-              </p>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  New Password <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input
-                  ref={resetInitialFocusRef}
-                  required
-                  type="password"
-                  minLength={6}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Min 6 characters"
-                />
-              </div>
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
-                <button type="button" onClick={() => { setIsResetModalOpen(false); setNewPassword(''); }}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={resetPassword.isPending}
-                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-colors shadow-sm disabled:opacity-50">
-                  {resetPassword.isPending ? 'Resetting...' : 'Reset Password'}
-                </button>
-              </div>
-            </form>
+      <BaseModal
+        isOpen={isResetModalOpen}
+        onClose={() => { setIsResetModalOpen(false); setNewPassword(''); }}
+        title="Reset Password"
+        maxWidth="md"
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            <button 
+              type="button" 
+              onClick={() => { setIsResetModalOpen(false); setNewPassword(''); }}
+              className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-2xl font-bold transition-all"
+            >
+              Cancel
+            </button>
+            <button 
+              form="reset-password-form"
+              type="submit" 
+              disabled={resetPassword.isPending}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            >
+              {resetPassword.isPending ? 'Resetting...' : 'Reset Password'}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <form id="reset-password-form" onSubmit={(e) => { e.preventDefault(); if(selectedUserId) resetPassword.mutate({ id: selectedUserId, newPassword }); }} className="space-y-4 py-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Enter a new password for this user. They will be required to use this password on their next login.
+          </p>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider">
+              New Password <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              required
+              type="password"
+              minLength={6}
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-slate-300 dark:focus:border-slate-600 rounded-2xl text-slate-700 dark:text-white focus:ring-4 focus:ring-slate-500/5 outline-none transition-all"
+              placeholder="Min 6 characters"
+              autoFocus
+            />
+          </div>
+        </form>
+      </BaseModal>
+
+      <ConfirmationModal
+        isOpen={confirmation.isOpen}
+        title={confirmation.title}
+        message={confirmation.message}
+        onConfirm={confirmation.onConfirm}
+        onClose={() => setConfirmation(prev => ({ ...prev, isOpen: false }))}
+        isLoading={deleteUser.isPending}
+      />
     </div>
   );
 }

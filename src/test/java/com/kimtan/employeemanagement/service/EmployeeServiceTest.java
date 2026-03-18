@@ -80,14 +80,14 @@ class EmployeeServiceTest {
 
     @Test
     void getAllEmployees_returnsMappedDtos() {
-        when(employeeRepository.findAll()).thenReturn(List.of(employee));
+        when(employeeRepository.findByActive(true)).thenReturn(List.of(employee));
         when(employeeMapper.toDto(employee)).thenReturn(response);
 
-        List<EmployeeResponse> results = employeeService.getAllEmployees();
+        List<EmployeeResponse> results = employeeService.getAllEmployees(true);
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getEmpId()).isEqualTo("EMP-001");
-        verify(employeeRepository).findAll();
+        verify(employeeRepository).findByActive(true);
         verify(employeeMapper).toDto(employee);
     }
 
@@ -191,12 +191,14 @@ class EmployeeServiceTest {
     }
 
     @Test
-    void deleteEmployee_success_deletes() {
-        when(employeeRepository.existsById(10L)).thenReturn(true);
+    void deleteEmployee_success_deactivates() {
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.save(employee)).thenReturn(employee);
 
         employeeService.deleteEmployee(10L);
 
-        verify(employeeRepository).deleteById(10L);
+        assertThat(employee.getActive()).isFalse();
+        verify(employeeRepository).save(employee);
     }
 
     @Test

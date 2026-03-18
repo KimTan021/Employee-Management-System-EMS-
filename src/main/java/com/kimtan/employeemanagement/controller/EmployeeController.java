@@ -1,5 +1,6 @@
 package com.kimtan.employeemanagement.controller;
 
+import com.kimtan.employeemanagement.model.dto.DashboardStatsDto;
 import com.kimtan.employeemanagement.model.dto.EmployeeRequest;
 import com.kimtan.employeemanagement.model.dto.EmployeeResponse;
 import com.kimtan.employeemanagement.service.EmployeeService;
@@ -21,8 +22,9 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    public ResponseEntity<List<EmployeeResponse>> getAllEmployees() {
-        return ResponseEntity.ok(employeeService.getAllEmployees());
+    public ResponseEntity<List<EmployeeResponse>> getAllEmployees(
+            @RequestParam(required = false, defaultValue = "true") Boolean active) {
+        return ResponseEntity.ok(employeeService.getAllEmployees(active));
     }
 
     @GetMapping("/{id}")
@@ -49,6 +51,17 @@ public class EmployeeController {
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/restore")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
+    public ResponseEntity<EmployeeResponse> restoreEmployee(@PathVariable Long id) {
+        return ResponseEntity.ok(employeeService.restoreEmployee(id));
+    }
+
+    @GetMapping("/statistics")
+    public ResponseEntity<DashboardStatsDto> getDashboardStats() {
+        return ResponseEntity.ok(employeeService.getDashboardStats());
     }
 
     @GetMapping("/statistics/average-salary")

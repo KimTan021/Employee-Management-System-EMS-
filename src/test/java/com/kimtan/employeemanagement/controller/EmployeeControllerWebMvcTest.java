@@ -60,7 +60,7 @@ class EmployeeControllerWebMvcTest {
         response.setDateOfBirth(LocalDate.now().minusYears(30));
         response.setSalary(new BigDecimal("5000.00"));
 
-        when(employeeService.getAllEmployees()).thenReturn(List.of(response));
+        when(employeeService.getAllEmployees(any())).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/employees"))
                 .andExpect(status().isOk())

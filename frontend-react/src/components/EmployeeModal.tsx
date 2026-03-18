@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { BaseModal } from './ui/BaseModal';
 
 interface EmployeeModalProps {
   isOpen: boolean;
@@ -27,17 +28,15 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
     sickLeaveBalance: '10',
     personalLeaveBalance: '5'
   });
+  const [ageError, setAgeError] = useState<string | null>(null);
 
-  const { data: departments = [] } = useQuery<{ id: number; name: string }[]>({
+  const { data: departments = [], isLoading: departmentsLoading } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['departments'],
     queryFn: async () => {
       const { data } = await api.get('/departments');
       return data;
     },
   });
-
-  const firstInputRef = useRef<HTMLInputElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -73,39 +72,8 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
         personalLeaveBalance: '5'
       });
     }
+    setAgeError(null);
   }, [initialData, isOpen, departments]);
-
-  // Focus trap + Escape key
-  useEffect(() => {
-    if (!isOpen) return;
-    firstInputRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return; }
-      if (e.key !== 'Tab' || !modalRef.current) return;
-      const focusable = Array.from(
-        modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-        e.preventDefault();
-        (e.shiftKey ? last : first).focus();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -114,6 +82,24 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Age validation
+    const dob = new Date(formData.dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+
+    if (age < 18) {
+      setAgeError("Employee must be at least 18 years old.");
+      const dobInput = document.getElementsByName('dateOfBirth')[0];
+      if (dobInput) (dobInput as HTMLElement).focus();
+      return;
+    }
+
+    setAgeError(null);
     onSave({
       ...formData,
       salary: parseFloat(formData.salary),
@@ -123,67 +109,80 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
     });
   };
 
-  const inputClass = "w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-900/50 border-none rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-accent outline-none transition-all shadow-inner text-sm";
-  const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5";
+  const inputClass = "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500/50 outline-none transition-all text-sm";
+  const labelClass = "block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 ml-1";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        ref={modalRef}
-        className="modal-enter w-full max-w-lg max-h-[90vh] bg-white/90 dark:bg-slate-800/95 backdrop-blur-xl rounded-[32px] shadow-2xl overflow-hidden border border-white/50 dark:border-slate-700/50 flex flex-col"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="px-8 pt-8 pb-6 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between shrink-0">
-          <h2 className="text-xl font-semibold text-slate-800 dark:text-white">{title}</h2>
-          <button onClick={onClose} aria-label="Close modal" className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      maxWidth="lg"
+      isLoading={departmentsLoading}
+      footer={
+        <div className="flex justify-end gap-3">
+          <button 
+            type="button" 
+            onClick={onClose}
+            className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            form="employee-form"
+            disabled={isLoading}
+            className="px-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl text-sm font-bold shadow-lg shadow-slate-900/10 dark:shadow-none hover:opacity-90 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin"></div>
+            ) : 'Save Record'}
           </button>
         </div>
-        
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="p-8 space-y-5 overflow-y-auto flex-1 min-h-0">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Fields marked <span className="text-red-500" aria-hidden="true">*</span> are required.
-            </p>
-            <div>
-              <label className={labelClass}>
-                Employee ID <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
-              <input ref={firstInputRef} required type="text" name="empId" value={formData.empId} onChange={handleChange}
-                     className={inputClass} placeholder="EMP-001" disabled={!!initialData} />
-            </div>
+      }
+    >
+      <form id="employee-form" onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+              Core Identity
+            </h3>
+            <span className="text-[10px] text-slate-400 font-medium">Fields with * are required</span>
+          </div>
           
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Employee ID *</label>
+              <input required type="text" name="empId" value={formData.empId} onChange={handleChange}
+                     className={inputClass} placeholder="e.g. EMP-101" disabled={!!initialData} />
+            </div>
+            <div>
+              <label className={labelClass}>Date of Birth *</label>
+              <input required type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={(e) => { handleChange(e); setAgeError(null); }} 
+                     className={cn(inputClass, ageError ? "border-rose-500 ring-rose-500/10" : "")} />
+              {ageError && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">{ageError}</p>}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>
-                First Name <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
+              <label className={labelClass}>First Name *</label>
               <input required type="text" name="firstName" value={formData.firstName} onChange={handleChange} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>
-                Last Name <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
+              <label className={labelClass}>Last Name *</label>
               <input required type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputClass} />
             </div>
           </div>
 
-          <div>
-            <label className={labelClass}>
-              Date of Birth <span className="text-red-500" aria-hidden="true">*</span>
-            </label>
-            <input required type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={inputClass} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>
-                Department <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
-              <select required name="departmentName" value={formData.departmentName} onChange={handleChange} className={inputClass + " cursor-pointer appearance-none"}>
+              <label className={labelClass}>Department *</label>
+              <select required name="departmentName" value={formData.departmentName} onChange={handleChange} 
+                      className={cn(inputClass, "appearance-none cursor-pointer")}
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' }}
+              >
                 {departments.length === 0 && <option value="">No departments</option>}
                 {departments.map((dept) => (
                   <option key={dept.id} value={dept.name}>{dept.name}</option>
@@ -191,73 +190,58 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
               </select>
             </div>
             <div>
-              <label className={labelClass}>
-                Salary ($) <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
+              <label className={labelClass}>Base Salary ($) *</label>
               <input required type="number" step="0.01" min="0" name="salary" value={formData.salary} onChange={handleChange} className={inputClass} placeholder="0.00" />
             </div>
           </div>
+        </div>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/50">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Contact Info</h3>
-            <div className="space-y-4">
-              <div>
-                <label className={labelClass}>Phone</label>
-                <input type="text" name="phone" value={formData.phone} onChange={handleChange} className={inputClass} placeholder="e.g. +63 900 000 0000" />
-              </div>
-              <div>
-                <label className={labelClass}>Address</label>
-                <input type="text" name="address" value={formData.address} onChange={handleChange} className={inputClass} placeholder="Street, City, Province" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Emergency Contact</label>
-                  <input type="text" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleChange} className={inputClass} placeholder="Full name" />
-                </div>
-                <div>
-                  <label className={labelClass}>Emergency Phone</label>
-                  <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone} onChange={handleChange} className={inputClass} placeholder="Phone number" />
-                </div>
-              </div>
+        <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            Contact & Location
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Phone</label>
+              <input type="text" name="phone" value={formData.phone} onChange={handleChange} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Emergency Phone</label>
+              <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone} onChange={handleChange} className={inputClass} />
             </div>
           </div>
+          <div>
+            <label className={labelClass}>Home Address</label>
+            <input type="text" name="address" value={formData.address} onChange={handleChange} className={inputClass} />
+          </div>
+        </div>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/50">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Leave Balances</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className={labelClass}>Annual</label>
-                <input type="number" min="0" name="annualLeaveBalance" value={formData.annualLeaveBalance} onChange={handleChange} className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Sick</label>
-                <input type="number" min="0" name="sickLeaveBalance" value={formData.sickLeaveBalance} onChange={handleChange} className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Personal</label>
-                <input type="number" min="0" name="personalLeaveBalance" value={formData.personalLeaveBalance} onChange={handleChange} className={inputClass} />
-              </div>
+        <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Policy Entitlements
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Annual</label>
+              <input type="number" min="0" name="annualLeaveBalance" value={formData.annualLeaveBalance} onChange={handleChange} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Sick</label>
+              <input type="number" min="0" name="sickLeaveBalance" value={formData.sickLeaveBalance} onChange={handleChange} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Personal</label>
+              <input type="number" min="0" name="personalLeaveBalance" value={formData.personalLeaveBalance} onChange={handleChange} className={inputClass} />
             </div>
           </div>
-          </div>
-
-          <div className="px-8 py-6 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700/50 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shrink-0">
-            <button type="button" onClick={onClose}
-                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 rounded-2xl font-medium transition-colors text-sm">
-              Cancel
-            </button>
-            <button type="submit" disabled={isLoading}
-                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 text-white rounded-2xl font-medium transition-colors shadow-md text-sm flex items-center gap-2 disabled:opacity-50">
-              {isLoading ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                  Saving...
-                </>
-              ) : 'Save changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </BaseModal>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }

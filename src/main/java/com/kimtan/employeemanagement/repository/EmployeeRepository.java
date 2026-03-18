@@ -13,4 +13,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     java.util.Optional<Employee> findByUserUsername(String username);
     java.util.Optional<Employee> findByUserUsernameAndActiveTrue(String username);
     List<Employee> findByActiveTrue();
+    List<Employee> findByActiveFalse();
+    List<Employee> findByActive(Boolean active);
 }

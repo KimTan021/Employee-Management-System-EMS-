@@ -2,6 +2,7 @@ package com.kimtan.employeemanagement.service;
 
 import com.kimtan.employeemanagement.exception.ResourceNotFoundException;
 import com.kimtan.employeemanagement.mapper.EmployeeMapper;
+import com.kimtan.employeemanagement.model.dto.DashboardStatsDto;
 import com.kimtan.employeemanagement.model.dto.EmployeeRequest;
 import com.kimtan.employeemanagement.model.dto.EmployeeResponse;
 import com.kimtan.employeemanagement.model.entity.Department;
@@ -32,8 +33,14 @@ public class EmployeeService implements EmployeeProcessingService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
-    public List<EmployeeResponse> getAllEmployees() {
-        return employeeRepository.findByActiveTrue().stream()
+    public List<EmployeeResponse> getAllEmployees(Boolean activeOnly) {
+        List<Employee> employees;
+        if (activeOnly != null) {
+            employees = employeeRepository.findByActive(activeOnly);
+        } else {
+            employees = employeeRepository.findAll();
+        }
+        return employees.stream()
                 .map(employeeMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -53,6 +60,7 @@ public class EmployeeService implements EmployeeProcessingService {
 
     @Transactional
     public EmployeeResponse createEmployee(EmployeeRequest request) {
+        validateAge(request.getDateOfBirth());
         if (employeeRepository.existsByEmpId(request.getEmpId())) {
             throw new IllegalArgumentException("Employee ID already exists: " + request.getEmpId());
         }
@@ -88,6 +96,7 @@ public class EmployeeService implements EmployeeProcessingService {
 
     @Transactional
     public EmployeeResponse updateEmployee(Long id, EmployeeRequest request) {
+        validateAge(request.getDateOfBirth());
         Employee employee = getEmployeeEntity(id);
         
         String oldValue = null;
@@ -120,6 +129,44 @@ public class EmployeeService implements EmployeeProcessingService {
             String newValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee));
             auditLogService.logAction("EMPLOYEE", id, "DEACTIVATE", oldValue, newValue, getCurrentUsername());
         } catch (Exception e) {}
+    }
+
+    @Transactional
+    public EmployeeResponse restoreEmployee(Long id) {
+        Employee employee = getEmployeeEntity(id);
+        String oldValue = null;
+        try { oldValue = objectMapper.writeValueAsString(employeeMapper.toDto(employee)); } catch (Exception e) {}
+        
+        employee.setActive(true);
+        Employee savedEmployee = employeeRepository.save(employee);
+
+        try {
+            String newValue = objectMapper.writeValueAsString(employeeMapper.toDto(savedEmployee));
+            auditLogService.logAction("EMPLOYEE", id, "RESTORE", oldValue, newValue, getCurrentUsername());
+        } catch (Exception e) {}
+        
+        return employeeMapper.toDto(savedEmployee);
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardStatsDto getDashboardStats() {
+        List<Employee> allActive = employeeRepository.findByActiveTrue();
+        
+        long totalEmployees = allActive.size();
+        long departmentCount = allActive.stream()
+                .map(Employee::getDepartment)
+                .distinct()
+                .count();
+                
+        BigDecimal avgSalary = calculateAverageSalary();
+        Double avgAge = calculateAverageAge();
+        
+        return DashboardStatsDto.builder()
+                .totalEmployees(totalEmployees)
+                .departmentCount(departmentCount)
+                .averageSalary(avgSalary)
+                .averageAge(avgAge != null ? avgAge : 0.0)
+                .build();
     }
 
     // --- Capstone Specific Requirements (Processing via Java Collections) ---
@@ -173,5 +220,13 @@ public class EmployeeService implements EmployeeProcessingService {
     private Department getDepartmentByName(String name) {
         return departmentRepository.findByName(name)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with name: " + name));
+    }
+
+    private void validateAge(LocalDate dateOfBirth) {
+        if (dateOfBirth == null) return;
+        LocalDate minimumDate = LocalDate.now().minusYears(18);
+        if (dateOfBirth.isAfter(minimumDate)) {
+            throw new IllegalArgumentException("Employee must be at least 18 years old.");
+        }
     }
 }
