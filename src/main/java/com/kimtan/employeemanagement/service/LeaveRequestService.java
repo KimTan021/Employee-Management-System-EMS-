@@ -46,13 +46,13 @@ public class LeaveRequestService {
     }
 
     public List<LeaveRequestDto> getAllLeaveRequests() {
-        return leaveRequestRepository.findAll().stream()
+        return leaveRequestRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(leaveRequestMapper::toDto)
                 .collect(Collectors.toList());
     }
 
     public List<LeaveRequestDto> getLeaveRequestsByEmployee(Long employeeId) {
-        return leaveRequestRepository.findByEmployeeId(employeeId).stream()
+        return leaveRequestRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId).stream()
                 .map(leaveRequestMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -70,7 +70,7 @@ public class LeaveRequestService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + employeeId));
 
-        List<LeaveRequest> approved = leaveRequestRepository.findByEmployeeIdAndStatus(employeeId, "APPROVED");
+        List<LeaveRequest> approved = leaveRequestRepository.findByEmployeeIdAndStatusOrderByCreatedAtDesc(employeeId, "APPROVED");
 
         int annualUsed = 0;
         int sickUsed = 0;

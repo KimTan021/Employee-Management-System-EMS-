@@ -69,7 +69,8 @@ export default function HRDashboard() {
   const { showToast } = useToast();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'profileChanges'>('employees');
+  const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'profileChanges' | 'departments'>('employees');
+  const [newDepartmentName, setNewDepartmentName] = useState('');
   const [leaveFilter, setLeaveFilter] = useState('ALL');
 
   // Modal states
@@ -149,7 +150,7 @@ export default function HRDashboard() {
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       api.put(`/employees/leaves/${id}/status?status=${status}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['allLeaves'] }); showToast('Leave status updated', 'success'); },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error updating leave', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error updating leave', 'error'),
   });
 
   const updateProfileChangeStatus = useMutation({
@@ -161,7 +162,7 @@ export default function HRDashboard() {
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       showToast('Profile change updated', 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error updating request', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error updating request', 'error'),
   });
 
   // Employee mutations (HR can create/update)
@@ -174,7 +175,7 @@ export default function HRDashboard() {
       setSelectedEmployee(null);
       showToast('Employee created successfully', 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error creating employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error creating employee', 'error'),
   });
 
   const updateEmployee = useMutation({
@@ -186,7 +187,7 @@ export default function HRDashboard() {
       setSelectedEmployee(null);
       showToast('Employee updated', 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error updating employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error updating employee', 'error'),
   });
 
   const deactivateEmployee = useMutation({
@@ -197,7 +198,7 @@ export default function HRDashboard() {
       showToast('Employee deactivated', 'info');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error deactivating employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error deactivating employee', 'error'),
   });
 
   const restoreEmployee = useMutation({
@@ -208,7 +209,33 @@ export default function HRDashboard() {
       showToast('Employee restored', 'success');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error restoring employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error restoring employee', 'error'),
+  });
+
+  const createDepartment = useMutation({
+    mutationFn: (name: string) => api.post('/departments', { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      setNewDepartmentName('');
+      showToast('Department created', 'success');
+    },
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error creating department', 'error'),
+  });
+
+  const deleteDepartment = useMutation({
+    mutationFn: (id: number) => api.delete(`/departments/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      showToast('Department deleted', 'info');
+      setConfirmation(prev => ({ ...prev, isOpen: false }));
+    },
+    onError: (err: any) => {
+      const message = err.response?.data?.details?.[0] || err.response?.data?.message || 'Error deleting department';
+      showToast(message, 'error');
+      setConfirmation(prev => ({ ...prev, isOpen: false }));
+    },
   });
 
   const handleLogout = () => { logout(); navigate('/login'); };
@@ -395,7 +422,8 @@ export default function HRDashboard() {
           {[
             { id: 'employees', label: 'Employees' },
             { id: 'leaves', label: 'Leave Requests', count: pendingCount },
-            { id: 'profileChanges', label: 'Profile Changes' }
+            { id: 'profileChanges', label: 'Profile Changes' },
+            { id: 'departments', label: 'Departments' }
           ].map(tab => (
             <button 
               key={tab.id}
@@ -855,6 +883,67 @@ export default function HRDashboard() {
           </div>
         )}
 
+        {/* ============ DEPARTMENTS TAB ============ */}
+        {activeTab === 'departments' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">Department Management</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Add or remove organizational units.</p>
+                </div>
+                <div className="flex gap-2 w-full md:w-auto">
+                  <input 
+                    type="text" 
+                    placeholder="New department name..." 
+                    value={newDepartmentName}
+                    onChange={e => setNewDepartmentName(e.target.value)}
+                    className="flex-1 md:w-64 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl text-sm focus:ring-2 focus:ring-purple-500/20 outline-none border border-transparent focus:border-purple-500/50 transition-all font-medium"
+                  />
+                  <button
+                    onClick={() => newDepartmentName.trim() && createDepartment.mutate(newDepartmentName.trim())}
+                    disabled={createDepartment.isPending || !newDepartmentName.trim()}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                  >
+                    {createDepartment.isPending ? <div className="w-3 h-3 border-2 border-white/30 border-t-white animate-spin rounded-full"></div> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>}
+                    Add Entry
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {departments.map(dept => (
+                  <div key={dept.id} className="group relative p-6 bg-slate-50/50 dark:bg-slate-900/30 rounded-3xl border border-slate-100 dark:border-slate-800 transition-all hover:border-purple-200 dark:hover:border-purple-900/30 hover:shadow-xl hover:shadow-purple-500/5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-purple-600 font-bold text-xs">
+                          {dept.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-200 text-sm tracking-tight">{dept.name}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setConfirmation({
+                            isOpen: true,
+                            title: 'Dissolve Department',
+                            message: `Are you certain you want to remove the "${dept.name}" department? This action cannot be reversed.`,
+                            variant: 'danger',
+                            onConfirm: () => deleteDepartment.mutate(dept.id)
+                          });
+                        }}
+                        className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                        title="Delete Department"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Modals */}
@@ -881,7 +970,7 @@ export default function HRDashboard() {
         variant={confirmation.variant}
         onConfirm={confirmation.onConfirm}
         onClose={() => setConfirmation(prev => ({ ...prev, isOpen: false }))}
-        isLoading={deactivateEmployee.isPending || restoreEmployee.isPending}
+        isLoading={deactivateEmployee.isPending || restoreEmployee.isPending || deleteDepartment.isPending}
       />
 
       <BaseModal

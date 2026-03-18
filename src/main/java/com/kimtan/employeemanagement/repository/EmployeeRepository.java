@@ -15,4 +15,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByActiveTrue();
     List<Employee> findByActiveFalse();
     List<Employee> findByActive(Boolean active);
+
+    boolean existsByDepartmentIdAndActiveTrue(Integer departmentId);
+    boolean existsByDepartmentId(Integer departmentId);
 }

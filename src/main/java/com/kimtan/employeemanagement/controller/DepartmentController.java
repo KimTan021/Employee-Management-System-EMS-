@@ -1,13 +1,12 @@
 package com.kimtan.employeemanagement.controller;
 
-import com.kimtan.employeemanagement.model.entity.Department;
-import com.kimtan.employeemanagement.repository.DepartmentRepository;
+import com.kimtan.employeemanagement.model.dto.DepartmentDto;
+import com.kimtan.employeemanagement.service.DepartmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -16,11 +15,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DepartmentController {
 
-    private final DepartmentRepository departmentRepository;
+    private final DepartmentService departmentService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<List<Department>> getAllDepartments() {
-        return ResponseEntity.ok(departmentRepository.findAll());
+    public ResponseEntity<List<DepartmentDto>> getAllDepartments() {
+        return ResponseEntity.ok(departmentService.getAllDepartments());
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
+    public ResponseEntity<DepartmentDto> createDepartment(@RequestBody DepartmentDto dto) {
+        return new ResponseEntity<>(departmentService.createDepartment(dto), HttpStatus.CREATED);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER')")
+    public ResponseEntity<Void> deleteDepartment(@PathVariable Integer id) {
+        departmentService.deleteDepartment(id);
+        return ResponseEntity.noContent().build();
     }
 }

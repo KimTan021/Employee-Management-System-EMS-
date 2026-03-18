@@ -160,7 +160,7 @@ export default function PortalDashboard() {
       setLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
       showToast('Leave request submitted', 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || 'Error submitting leave', 'error')
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error submitting leave', 'error')
   });
 
   const submitProfileChange = useMutation({
@@ -170,7 +170,7 @@ export default function PortalDashboard() {
       setIsProfileChangeModalOpen(false);
       showToast('Profile update request submitted', 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.message || 'Error submitting request', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error submitting request', 'error'),
   });
 
   // Change password handled by shared modal
