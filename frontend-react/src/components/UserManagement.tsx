@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { useToast } from './ToastContext';
 import { BaseModal } from './ui/BaseModal';
 import { ConfirmationModal } from './ui/ConfirmationModal';
+import { MESSAGES } from '../constants/messages';
 
 interface UserAccount {
   id: number;
@@ -36,6 +37,8 @@ export default function UserManagement() {
     role: 'EMPLOYEE' 
   });
   const [newPassword, setNewPassword] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const userPageSize = 5;
 
   // Confirmation state
   const [confirmation, setConfirmation] = useState<{
@@ -105,9 +108,22 @@ export default function UserManagement() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedUsername = createForm.username.trim();
+    if (trimmedUsername.length < 3) {
+      showToast('Username must be at least 3 characters', 'error');
+      return;
+    }
+    if (/\s/.test(trimmedUsername)) {
+      showToast('Username cannot contain spaces', 'error');
+      return;
+    }
+    if (createForm.password.length < 6) {
+      showToast('Password must be at least 6 characters', 'error');
+      return;
+    }
     createUser.mutate({
       employeeId: createForm.employeeId ? Number(createForm.employeeId) : null,
-      username: createForm.username,
+      username: trimmedUsername,
       password: createForm.password,
       role: createForm.role,
     });
@@ -125,6 +141,19 @@ export default function UserManagement() {
       </span>
     );
   };
+
+  const totalUserPages = Math.max(1, Math.ceil(users.length / userPageSize));
+
+  useEffect(() => {
+    if (userPage > totalUserPages) {
+      setUserPage(totalUserPages);
+    }
+  }, [totalUserPages, userPage]);
+
+  const pagedUsers = users.slice(
+    (userPage - 1) * userPageSize,
+    userPage * userPageSize
+  );
 
   return (
     <div className="space-y-6">
@@ -163,7 +192,7 @@ export default function UserManagement() {
               ) : users.length === 0 ? (
                 <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No user accounts found.</td></tr>
               ) : (
-                users.map(user => (
+                pagedUsers.map(user => (
                   <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors group">
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{user.username}</td>
                     <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
@@ -218,6 +247,31 @@ export default function UserManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* User Pagination */}
+        {totalUserPages > 1 && (
+          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
+              {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white font-bold">{userPage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalUserPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setUserPage(prev => Math.max(1, prev - 1))}
+                disabled={userPage === 1}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <button
+                onClick={() => setUserPage(prev => Math.min(totalUserPages, prev + 1))}
+                disabled={userPage === totalUserPages}
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <BaseModal

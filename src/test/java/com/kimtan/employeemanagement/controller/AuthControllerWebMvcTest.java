@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,6 +28,9 @@ class AuthControllerWebMvcTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private MessageSource messageSource;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -34,7 +38,7 @@ class AuthControllerWebMvcTest {
     void setUp() {
         objectMapper = new ObjectMapper().findAndRegisterModules();
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
     }
 

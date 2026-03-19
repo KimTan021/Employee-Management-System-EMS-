@@ -15,6 +15,8 @@ import { BaseModal } from '../components/ui/BaseModal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { cn } from '../lib/utils';
 import { exportEmployeesToPDF } from '../lib/pdfExport';
+import { MESSAGES } from '../constants/messages';
+import { ENDPOINTS } from '../constants/api';
 
 interface Employee {
   id: number;
@@ -81,6 +83,9 @@ export default function HRDashboard() {
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isLeaveDetailOpen, setIsLeaveDetailOpen] = useState(false);
+  const [isEditDeptModalOpen, setIsEditDeptModalOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [editDeptName, setEditDeptName] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [auditEntityId, setAuditEntityId] = useState<number | undefined>(undefined);
@@ -90,9 +95,13 @@ export default function HRDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [employeePage, setEmployeePage] = useState(1);
-  const employeePageSize = 8;
+  const employeePageSize = 5;
   const [leavePage, setLeavePage] = useState(1);
-  const leavePageSize = 8;
+  const leavePageSize = 5;
+  const [profileChangePage, setProfileChangePage] = useState(1);
+  const profileChangePageSize = 5;
+  const [departmentPage, setDepartmentPage] = useState(1);
+  const departmentPageSize = 6;
   const [showInactive, setShowInactive] = useState(false);
 
   // Confirmation state
@@ -113,32 +122,32 @@ export default function HRDashboard() {
   // Fetch Employees
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ['employees', showInactive],
-    queryFn: async () => { const { data } = await api.get(`/employees?active=${!showInactive}`); return data; },
+    queryFn: async () => { const { data } = await api.get(`${ENDPOINTS.EMPLOYEES.BASE}?active=${!showInactive}`); return data; },
   });
 
   // Fetch Departments
   const { data: departments = [] } = useQuery<Department[]>({
     queryKey: ['departments'],
-    queryFn: async () => { const { data } = await api.get('/departments'); return data; },
+    queryFn: async () => { const { data } = await api.get(ENDPOINTS.DEPARTMENTS.BASE); return data; },
   });
 
   // Fetch Leave Requests
   const { data: leaves = [], isLoading: leavesLoading } = useQuery<LeaveRequest[]>({
     queryKey: ['allLeaves'],
-    queryFn: async () => { const { data } = await api.get('/employees/leaves'); return data; },
+    queryFn: async () => { const { data } = await api.get(ENDPOINTS.EMPLOYEES.LEAVES); return data; },
   });
 
   // Fetch Profile Change Requests
-  const { data: profileChanges = [], isLoading: profileChangesLoading } = useQuery<ProfileChangeRequest[]>({
+  const { data: profileChanges = [] } = useQuery<ProfileChangeRequest[]>({
     queryKey: ['profileChanges'],
-    queryFn: async () => { const { data } = await api.get('/profile-changes'); return data; },
+    queryFn: async () => { const { data } = await api.get(ENDPOINTS.PROFILE_CHANGES.BASE); return data; },
   });
 
   // Consolidated Statistics
   const { data: stats } = useQuery<{ totalEmployees: number; departmentCount: number; averageSalary: number; averageAge: number; }>({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
-      const { data } = await api.get('/employees/statistics');
+      const { data } = await api.get(ENDPOINTS.EMPLOYEES.STATISTICS);
       return data;
     },
   });
@@ -150,101 +159,218 @@ export default function HRDashboard() {
   // Leave status mutation
   const updateLeaveStatus = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
-      api.put(`/employees/leaves/${id}/status?status=${status}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['allLeaves'] }); showToast('Leave status updated', 'success'); },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error updating leave', 'error'),
+      api.put(ENDPOINTS.EMPLOYEES.LEAVE_STATUS(id) + `?status=${status}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['allLeaves'] }); showToast(MESSAGES.LEAVE.UPDATE_SUCCESS, 'success'); },
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.LEAVE.UPDATE_ERROR, 'error'),
   });
 
   const updateProfileChangeStatus = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
-      api.put(`/profile-changes/${id}/status?status=${status}`),
+      api.put(ENDPOINTS.PROFILE_CHANGES.UPDATE_STATUS(id) + `?status=${status}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profileChanges'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      showToast('Profile change updated', 'success');
+      showToast(MESSAGES.PROFILE_CHANGE.UPDATE_SUCCESS, 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error updating request', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.PROFILE_CHANGE.UPDATE_ERROR, 'error'),
   });
 
   // Employee mutations (HR can create/update)
   const createEmployee = useMutation({
-    mutationFn: (data: any) => api.post('/employees', data),
+    mutationFn: (data: any) => api.post(ENDPOINTS.EMPLOYEES.BASE, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setIsEmployeeModalOpen(false);
       setSelectedEmployee(null);
-      showToast('Employee created successfully', 'success');
+      showToast(MESSAGES.EMPLOYEE.CREATE_SUCCESS, 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error creating employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.EMPLOYEE.CREATE_ERROR, 'error'),
   });
 
   const updateEmployee = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => api.put(`/employees/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.put(ENDPOINTS.EMPLOYEES.BY_ID(id), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setIsEmployeeModalOpen(false);
       setSelectedEmployee(null);
-      showToast('Employee updated', 'success');
+      showToast(MESSAGES.EMPLOYEE.UPDATE_SUCCESS, 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error updating employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.EMPLOYEE.UPDATE_ERROR, 'error'),
   });
 
   const deactivateEmployee = useMutation({
-    mutationFn: (id: number) => api.delete(`/employees/${id}`),
+    mutationFn: (id: number) => api.delete(ENDPOINTS.EMPLOYEES.BY_ID(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      showToast('Employee deactivated', 'info');
+      showToast(MESSAGES.EMPLOYEE.DEACTIVATE_SUCCESS, 'info');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error deactivating employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.EMPLOYEE.DEACTIVATE_ERROR, 'error'),
   });
 
   const restoreEmployee = useMutation({
-    mutationFn: (id: number) => api.put(`/employees/${id}/restore`),
+    mutationFn: (id: number) => api.put(ENDPOINTS.EMPLOYEES.RESTORE(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      showToast('Employee restored', 'success');
+      showToast(MESSAGES.EMPLOYEE.RESTORE_SUCCESS, 'success');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error restoring employee', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.EMPLOYEE.RESTORE_ERROR, 'error'),
   });
 
   const createDepartment = useMutation({
-    mutationFn: (name: string) => api.post('/departments', { name }),
+    mutationFn: (name: string) => api.post(ENDPOINTS.DEPARTMENTS.BASE, { name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setNewDepartmentName('');
-      showToast('Department created', 'success');
+      showToast(MESSAGES.DEPARTMENT.CREATE_SUCCESS, 'success');
     },
-    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error creating department', 'error'),
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.DEPARTMENT.CREATE_ERROR, 'error'),
   });
 
   const deleteDepartment = useMutation({
-    mutationFn: (id: number) => api.delete(`/departments/${id}`),
+    mutationFn: (id: number) => api.delete(ENDPOINTS.DEPARTMENTS.BY_ID(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      showToast('Department deleted', 'info');
+      showToast(MESSAGES.DEPARTMENT.DELETE_SUCCESS, 'info');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
     onError: (err: any) => {
-      const message = err.response?.data?.details?.[0] || err.response?.data?.message || 'Error deleting department';
+      const message = err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.DEPARTMENT.DELETE_ERROR;
       showToast(message, 'error');
       setConfirmation(prev => ({ ...prev, isOpen: false }));
     },
   });
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const updateDepartment = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => api.put(ENDPOINTS.DEPARTMENTS.BY_ID(id), { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setIsEditDeptModalOpen(false);
+      setEditingDept(null);
+      showToast(MESSAGES.DEPARTMENT.UPDATE_SUCCESS, 'success');
+    },
+    onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || MESSAGES.DEPARTMENT.UPDATE_ERROR, 'error'),
+  });
 
-
-
+  // ============= HELPERS & MEMOS =============
   const calculateAge = (dob: string) => Math.floor((new Date().getTime() - new Date(dob).getTime()) / 31557600000);
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = emp.firstName.toLowerCase().includes(searchLower) || emp.lastName.toLowerCase().includes(searchLower) || emp.empId.toLowerCase().includes(searchLower);
+      const matchesDept = departmentFilter ? emp.departmentName === departmentFilter : true;
+      return matchesSearch && matchesDept;
+    });
+  }, [employees, searchQuery, departmentFilter]);
+
+  const departmentStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    employees.forEach(emp => { counts[emp.departmentName] = (counts[emp.departmentName] || 0) + 1; });
+    return Object.keys(counts).map(dept => ({ name: dept, value: counts[dept] }));
+  }, [employees]);
+
+  const filteredLeaves = useMemo(() => {
+    if (leaveFilter === 'ALL') return leaves;
+    return leaves.filter(l => l.status === leaveFilter);
+  }, [leaves, leaveFilter]);
+
+  const enrichedLeaves = useMemo(() => {
+    return filteredLeaves.map(leave => {
+      const emp = employees.find(e => e.id === leave.employeeId);
+      return { ...leave, employeeName: emp ? `${emp.firstName} ${emp.lastName}` : `Employee #${leave.employeeId}` };
+    });
+  }, [filteredLeaves, employees]);
+
+  const sortedProfileChanges = useMemo(() => {
+    return [...profileChanges].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [profileChanges]);
+
+  const pendingCount = leaves.filter(l => l.status === 'PENDING').length;
+  const pendingProfileChangesCount = profileChanges.filter(pc => pc.status === 'PENDING').length;
+
+  const totalEmployeePages = Math.max(1, Math.ceil(filteredEmployees.length / employeePageSize));
+  const pagedEmployees = filteredEmployees.slice(
+    (employeePage - 1) * employeePageSize,
+    employeePage * employeePageSize
+  );
+
+  const totalLeavePages = Math.max(1, Math.ceil(enrichedLeaves.length / leavePageSize));
+  const pagedLeaves = enrichedLeaves.slice(
+    (leavePage - 1) * leavePageSize,
+    leavePage * leavePageSize
+  );
+
+  const totalProfileChangePages = Math.max(1, Math.ceil(sortedProfileChanges.length / profileChangePageSize));
+  const pagedProfileChanges = sortedProfileChanges.slice(
+    (profileChangePage - 1) * profileChangePageSize,
+    profileChangePage * profileChangePageSize
+  );
+
+  const totalDepartmentPages = Math.max(1, Math.ceil(departments.length / departmentPageSize));
+  const pagedDepartments = departments.slice(
+    (departmentPage - 1) * departmentPageSize,
+    departmentPage * departmentPageSize
+  );
+
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+  // ============= EFFECTS =============
+  useEffect(() => {
+    setEmployeePage(1);
+  }, [searchQuery, departmentFilter]);
+
+  useEffect(() => {
+    if (employeePage > totalEmployeePages) {
+      setEmployeePage(totalEmployeePages);
+    }
+  }, [totalEmployeePages, employeePage]);
+
+  useEffect(() => {
+    setLeavePage(1);
+  }, [leaveFilter]);
+
+  useEffect(() => {
+    if (leavePage > totalLeavePages) {
+      setLeavePage(totalLeavePages);
+    }
+  }, [totalLeavePages, leavePage]);
+
+  useEffect(() => {
+    setProfileChangePage(1);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (profileChangePage > totalProfileChangePages) {
+      setProfileChangePage(totalProfileChangePages);
+    }
+  }, [totalProfileChangePages, profileChangePage]);
+
+  useEffect(() => {
+    setDepartmentPage(1);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (departmentPage > totalDepartmentPages) {
+      setDepartmentPage(totalDepartmentPages);
+    }
+  }, [totalDepartmentPages, departmentPage]);
+
+  // ============= HANDLERS =============
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const handleSaveEmployee = (empData: any) => {
     if (selectedEmployee) {
@@ -256,7 +382,7 @@ export default function HRDashboard() {
 
   const handleExportCSV = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
-      showToast('No data to export', 'info');
+      showToast(MESSAGES.COMMON.NO_DATA_EXPORT, 'info');
       return;
     }
     const headers = ['ID', 'Employee ID', 'First Name', 'Last Name', 'Department', 'Date of Birth', 'Salary'];
@@ -273,17 +399,17 @@ export default function HRDashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('CSV exported successfully', 'success');
+    showToast(MESSAGES.COMMON.CSV_EXPORT_SUCCESS, 'success');
   };
 
   const handleExportPDF = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
-      showToast('No data to export', 'info');
+      showToast(MESSAGES.COMMON.NO_DATA_EXPORT, 'info');
       return;
     }
     
     if (!stats) {
-      showToast('Statistics not loaded', 'error');
+      showToast(MESSAGES.COMMON.STATS_NOT_LOADED, 'error');
       return;
     }
 
@@ -297,68 +423,9 @@ export default function HRDashboard() {
       }, 
       'HR Dashboard: Employee Directory'
     );
-    showToast('PDF report generated', 'success');
+    showToast(MESSAGES.COMMON.PDF_EXPORT_SUCCESS, 'success');
   };
 
-  const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = emp.firstName.toLowerCase().includes(searchLower) || emp.lastName.toLowerCase().includes(searchLower) || emp.empId.toLowerCase().includes(searchLower);
-      const matchesDept = departmentFilter ? emp.departmentName === departmentFilter : true;
-      return matchesSearch && matchesDept;
-    });
-  }, [employees, searchQuery, departmentFilter]);
-
-  useEffect(() => {
-    setEmployeePage(1);
-  }, [searchQuery, departmentFilter]);
-
-  const filteredLeaves = useMemo(() => {
-    if (leaveFilter === 'ALL') return leaves;
-    return leaves.filter(l => l.status === leaveFilter);
-  }, [leaves, leaveFilter]);
-
-  useEffect(() => {
-    setLeavePage(1);
-  }, [leaveFilter]);
-
-  // Enrich leave requests with employee names
-  const enrichedLeaves = useMemo(() => {
-    return filteredLeaves.map(leave => {
-      const emp = employees.find(e => e.id === leave.employeeId);
-      return { ...leave, employeeName: emp ? `${emp.firstName} ${emp.lastName}` : `Employee #${leave.employeeId}` };
-    });
-  }, [filteredLeaves, employees]);
-
-  const totalEmployeePages = Math.max(1, Math.ceil(filteredEmployees.length / employeePageSize));
-  const pagedEmployees = filteredEmployees.slice(
-    (employeePage - 1) * employeePageSize,
-    employeePage * employeePageSize
-  );
-
-  const totalLeavePages = Math.max(1, Math.ceil(enrichedLeaves.length / leavePageSize));
-  const pagedLeaves = enrichedLeaves.slice(
-    (leavePage - 1) * leavePageSize,
-    leavePage * leavePageSize
-  );
-
-  const pendingCount = leaves.filter(l => l.status === 'PENDING').length;
-  const pendingProfileChangesCount = profileChanges.filter(pc => pc.status === 'PENDING').length;
-
-  const sortedProfileChanges = useMemo(() => {
-    return [...profileChanges].sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
-    });
-  }, [profileChanges]);
-
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
-  const departmentStats = useMemo(() => {
-    const counts: Record<string, number> = {};
-    employees.forEach(emp => { counts[emp.departmentName] = (counts[emp.departmentName] || 0) + 1; });
-    return Object.keys(counts).map(dept => ({ name: dept, value: counts[dept] }));
-  }, [employees]);
 
 
 
@@ -421,9 +488,9 @@ export default function HRDashboard() {
         {/* Welcome Section */}
         <div className="mb-4">
           <h1 className="text-4xl md:text-5xl font-light font-display tracking-tight text-slate-800 dark:text-white mb-2">
-            HR <span className="font-semibold">Dashboard</span>
+            {MESSAGES.UI.HR_DASHBOARD.TITLE.split(' ')[0]} <span className="font-semibold">{MESSAGES.UI.HR_DASHBOARD.TITLE.split(' ')[1]}</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">Manage the employee lifecycle, leave requests, and profile updates.</p>
+          <p className="text-slate-500 dark:text-slate-400">{MESSAGES.UI.HR_DASHBOARD.SUBTITLE}</p>
         </div>
 
         {/* Stats Cards */}
@@ -455,10 +522,10 @@ export default function HRDashboard() {
         {/* Tab Selection */}
         <div className="flex items-center justify-center gap-2 bg-white/70 backdrop-blur-md dark:bg-slate-800/80 p-2 rounded-full shadow-sm border border-white/40 dark:border-slate-700/50">
           {[
-            { id: 'employees', label: 'Employees' },
-            { id: 'leaves', label: 'Leave Requests', count: pendingCount },
-            { id: 'profileChanges', label: 'Profile Changes', count: pendingProfileChangesCount },
-            { id: 'departments', label: 'Departments' }
+            { id: 'employees', label: MESSAGES.UI.HR_DASHBOARD.TAB_EMPLOYEES },
+            { id: 'leaves', label: MESSAGES.UI.HR_DASHBOARD.TAB_LEAVES, count: pendingCount },
+            { id: 'profileChanges', label: MESSAGES.UI.HR_DASHBOARD.TAB_PROFILE_CHANGES, count: pendingProfileChangesCount },
+            { id: 'departments', label: MESSAGES.UI.HR_DASHBOARD.TAB_DEPARTMENTS }
           ].map(tab => (
             <button 
               key={tab.id}
@@ -489,7 +556,7 @@ export default function HRDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Chart Card */}
               <div className="lg:col-span-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 flex flex-col items-center">
-                <h3 className="text-slate-800 dark:text-white font-semibold text-lg mb-6 self-start">Department Mix</h3>
+                <h3 className="text-slate-800 dark:text-white font-semibold text-lg mb-6 self-start">{MESSAGES.UI.HR_DASHBOARD.CHART_DEPARTMENT_MIX}</h3>
                 <div className="w-full h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -539,7 +606,7 @@ export default function HRDashboard() {
                       <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                       <input 
                         type="text" 
-                        placeholder="Search employees..." 
+                        placeholder={MESSAGES.UI.HR_DASHBOARD.SEARCH_EMPLOYEES}
                         value={searchQuery} 
                         onChange={e => setSearchQuery(e.target.value)}
                         className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl text-sm focus:ring-2 focus:ring-purple-500/20 focus:bg-white dark:focus:bg-slate-900 outline-none border border-transparent focus:border-purple-500/50 transition-all" 
@@ -551,7 +618,7 @@ export default function HRDashboard() {
                       className="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl text-sm focus:ring-2 focus:ring-purple-500/20 outline-none border border-transparent focus:border-purple-500/50 appearance-none cursor-pointer transition-all pr-10"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' }}
                     >
-                      <option value="">All Departments</option>
+                      <option value="">{MESSAGES.UI.HR_DASHBOARD.ALL_DEPARTMENTS}</option>
                       {departments.map(dept => (
                         <option key={dept.id} value={dept.name}>{dept.name}</option>
                       ))}
@@ -568,14 +635,14 @@ export default function HRDashboard() {
                       )}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      {showInactive ? 'Showing Inactive' : 'Show Inactive'}
+                      {showInactive ? MESSAGES.UI.HR_DASHBOARD.SHOWN_INACTIVE : MESSAGES.UI.HR_DASHBOARD.SHOW_INACTIVE}
                     </button>
                     <button
                       onClick={() => { setSelectedEmployee(null); setIsEmployeeModalOpen(true); }}
                       className="flex-1 sm:flex-none px-6 py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-2xl text-sm font-semibold transition-all hover:shadow-lg active:scale-95 flex items-center justify-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                      Add New
+                      {MESSAGES.UI.COMMON.ADD_NEW}
                     </button>
                     <button 
                       onClick={handleExportPDF}
@@ -598,10 +665,10 @@ export default function HRDashboard() {
                   <table className="w-full text-left border-separate border-spacing-y-3">
                     <thead className="text-slate-400 font-bold text-[10px] uppercase tracking-widest hidden md:table-header-group">
                       <tr>
-                        <th className="px-6 py-4">Employee info</th>
-                        <th className="px-6 py-4">Department</th>
-                        <th className="px-6 py-4">Salary & Age</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
+                        <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_EMPLOYEE_INFO}</th>
+                        <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_DEPARTMENT}</th>
+                        <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_SALARY_AGE}</th>
+                        <th className="px-6 py-4 text-right">{MESSAGES.UI.COMMON.ACTIONS}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -610,7 +677,7 @@ export default function HRDashboard() {
                           <td colSpan={4} className="px-6 py-20 text-center">
                             <div className="flex flex-col items-center gap-4">
                               <div className="w-10 h-10 rounded-full border-2 border-purple-500 border-t-transparent animate-spin"></div>
-                              <p className="text-slate-500 font-medium">Loading workforce data...</p>
+                              <p className="text-slate-500 font-medium">{MESSAGES.UI.HR_DASHBOARD.LOADING_WORKFORCE}</p>
                             </div>
                           </td>
                         </tr>
@@ -635,7 +702,7 @@ export default function HRDashboard() {
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <span className="text-slate-900 dark:text-slate-100 font-semibold">${emp.salary.toLocaleString()}</span>
-                              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{calculateAge(emp.dateOfBirth)} years old</span>
+                              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{calculateAge(emp.dateOfBirth)} {MESSAGES.UI.HR_DASHBOARD.YEARS_OLD}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4 rounded-r-3xl">
@@ -643,21 +710,21 @@ export default function HRDashboard() {
                               <button
                                 onClick={() => { setSelectedEmployee(emp); setIsEmployeeModalOpen(true); }}
                                 className="p-2.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-colors"
-                                title="Edit Profile"
+                                title={MESSAGES.UI.HR_DASHBOARD.TOOLTIP_EDIT}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                               </button>
                               <button 
                                 onClick={() => { setAuditEntityId(emp.id); setAuditEntityName(`${emp.firstName} ${emp.lastName}`); setIsDocumentModalOpen(true); }}
                                 className="p-2.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-colors"
-                                title="Documents"
+                                title={MESSAGES.UI.HR_DASHBOARD.TOOLTIP_DOCS}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                               </button>
                               <button 
                                 onClick={() => { setAuditEntityId(emp.id); setAuditEntityName(`${emp.firstName} ${emp.lastName}`); setIsAuditModalOpen(true); }}
                                 className="p-2.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-colors"
-                                title="View History"
+                                title={MESSAGES.UI.HR_DASHBOARD.TOOLTIP_HISTORY}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                               </button>
@@ -686,7 +753,7 @@ export default function HRDashboard() {
                                   "p-2.5 rounded-xl transition-colors",
                                   showInactive ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" : "text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30"
                                 )}
-                                title={showInactive ? "Restore" : "Deactivate"}
+                                title={showInactive ? MESSAGES.UI.COMMON.REFRESH : MESSAGES.UI.COMMON.DELETE}
                               >
                                 {showInactive ? (
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -705,7 +772,7 @@ export default function HRDashboard() {
                 {/* Pagination */}
                 <div className="px-8 py-6 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    Page <span className="text-slate-900 dark:text-white">{employeePage}</span> of {totalEmployeePages}
+                    {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white">{employeePage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalEmployeePages}
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -733,7 +800,7 @@ export default function HRDashboard() {
         {activeTab === 'leaves' && (
           <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="p-8 border-b border-slate-100 dark:border-slate-700/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-xl font-bold text-slate-800 dark:text-white">Leave Workflow</h2>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{MESSAGES.UI.HR_DASHBOARD.LEAVE_WORKFLOW}</h2>
               <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900/50 rounded-2xl">
                 {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(status => (
                   <button 
@@ -759,18 +826,18 @@ export default function HRDashboard() {
               <table className="w-full text-left border-separate border-spacing-y-3">
                 <thead className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">
                   <tr>
-                    <th className="px-6 py-4">Employee</th>
+                    <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.TAB_EMPLOYEES.slice(0, -1)}</th>
                     <th className="px-6 py-4">Timeline</th>
                     <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Review</th>
+                    <th className="px-6 py-4">{MESSAGES.UI.COMMON.STATUS}</th>
+                    <th className="px-6 py-4 text-right">{MESSAGES.UI.HR_DASHBOARD.REVIEW}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {leavesLoading ? (
-                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500 font-medium">Synchronizing leave data...</td></tr>
+                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500 font-medium">{MESSAGES.UI.HR_DASHBOARD.LOADING_WORKFORCE}</td></tr>
                   ) : enrichedLeaves.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500 font-medium">No leave requests found.</td></tr>
+                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500 font-medium">{MESSAGES.UI.HR_DASHBOARD.NO_LEAVES}</td></tr>
                   ) : (
                     pagedLeaves.map(leave => (
                       <tr key={leave.id} className="bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900 transition-all rounded-3xl shadow-sm hover:shadow-md border border-transparent hover:border-slate-100 dark:hover:border-slate-700/50">
@@ -869,12 +936,10 @@ export default function HRDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {profileChangesLoading ? (
-                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500">Validating profile requests...</td></tr>
-                  ) : profileChanges.length === 0 ? (
+                {pagedProfileChanges.length === 0 ? (
                     <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500">No pending profile changes.</td></tr>
                   ) : (
-                    sortedProfileChanges.map(req => (
+                    pagedProfileChanges.map((req) => (
                       <tr key={req.id} className="bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900 transition-all rounded-3xl shadow-sm hover:shadow-md border border-transparent hover:border-slate-100 dark:hover:border-slate-700/50">
                         <td className="px-6 py-4 rounded-l-3xl">
                           <span className="font-semibold text-slate-900 dark:text-white">{req.employeeName}</span>
@@ -922,6 +987,31 @@ export default function HRDashboard() {
                 </tbody>
               </table>
             </div>
+
+            {/* Profile Changes Pagination */}
+            {totalProfileChangePages > 1 && (
+              <div className="px-8 py-4 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
+                  {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white font-bold">{profileChangePage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalProfileChangePages}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setProfileChangePage(prev => Math.max(1, prev - 1))}
+                    disabled={profileChangePage === 1}
+                    className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button
+                    onClick={() => setProfileChangePage(prev => Math.min(totalProfileChangePages, prev + 1))}
+                    disabled={profileChangePage === totalProfileChangePages}
+                    className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -943,7 +1033,14 @@ export default function HRDashboard() {
                     className="flex-1 md:w-64 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl text-sm focus:ring-2 focus:ring-purple-500/20 outline-none border border-transparent focus:border-purple-500/50 transition-all font-medium"
                   />
                   <button
-                    onClick={() => newDepartmentName.trim() && createDepartment.mutate(newDepartmentName.trim())}
+                    onClick={() => {
+                      const name = newDepartmentName.trim();
+                      if (name.length < 2) {
+                        showToast('Department name must be at least 2 characters', 'error');
+                        return;
+                      }
+                      createDepartment.mutate(name);
+                    }}
                     disabled={createDepartment.isPending || !newDepartmentName.trim()}
                     className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                   >
@@ -954,7 +1051,7 @@ export default function HRDashboard() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {departments.map(dept => (
+                {pagedDepartments.map(dept => (
                   <div 
                     key={dept.id} 
                     onClick={() => { setActiveTab('employees'); setDepartmentFilter(dept.name); }}
@@ -973,26 +1070,65 @@ export default function HRDashboard() {
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmation({
-                            isOpen: true,
-                            title: 'Dissolve Department',
-                            message: `Are you certain you want to remove the "${dept.name}" department? This action cannot be reversed.`,
-                            variant: 'danger',
-                            onConfirm: () => deleteDepartment.mutate(dept.id)
-                          });
-                        }}
-                        className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                        title="Delete Department"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDept(dept);
+                            setEditDeptName(dept.name);
+                            setIsEditDeptModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl transition-all"
+                          title="Edit Department"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmation({
+                              isOpen: true,
+                              title: 'Dissolve Department',
+                              message: `Are you certain you want to remove the "${dept.name}" department? This action cannot be reversed.`,
+                              variant: 'danger',
+                              onConfirm: () => deleteDepartment.mutate(dept.id)
+                            });
+                          }}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"
+                          title="Delete Department"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* Departments Pagination */}
+              {totalDepartmentPages > 1 && (
+                <div className="mt-8 px-8 py-4 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between rounded-b-[2rem]">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
+                    {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white font-bold">{departmentPage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalDepartmentPages}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDepartmentPage(prev => Math.max(1, prev - 1))}
+                      disabled={departmentPage === 1}
+                      className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button
+                      onClick={() => setDepartmentPage(prev => Math.min(totalDepartmentPages, prev + 1))}
+                      disabled={departmentPage === totalDepartmentPages}
+                      className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1085,6 +1221,51 @@ export default function HRDashboard() {
             </div>
           </div>
         )}
+      </BaseModal>
+
+      <BaseModal
+        isOpen={isEditDeptModalOpen}
+        onClose={() => setIsEditDeptModalOpen(false)}
+        title="Rename Department"
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsEditDeptModalOpen(false)}
+              className="flex-1 py-3 bg-white dark:bg-slate-800 text-slate-600 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold active:scale-95 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const name = editDeptName.trim();
+                if (name.length < 2) {
+                  showToast('Department name must be at least 2 characters', 'error');
+                  return;
+                }
+                if (editingDept) updateDepartment.mutate({ id: editingDept.id, name });
+              }}
+              disabled={updateDepartment.isPending || !editDeptName.trim() || editDeptName.trim() === editingDept?.name}
+              className="flex-1 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {updateDepartment.isPending ? 'Updating...' : 'Save Changes'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Enter a new name for the organizational unit.</p>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Department Name</label>
+            <input
+              type="text"
+              value={editDeptName}
+              onChange={(e) => setEditDeptName(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl text-sm focus:ring-2 focus:ring-purple-500/20 outline-none border border-transparent focus:border-purple-500/50 transition-all font-medium"
+              placeholder="e.g. Finance & Operations"
+              autoFocus
+            />
+          </div>
+        </div>
       </BaseModal>
     </div>
   );

@@ -28,7 +28,7 @@ public class ProfileChangeRequestService {
     @Transactional
     public ProfileChangeRequestDto submitRequest(Long employeeId, ProfileChangeRequestDto dto) {
         Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + employeeId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.not_found"));
 
         ProfileChangeRequest request = ProfileChangeRequest.builder()
                 .employee(employee)
@@ -60,7 +60,7 @@ public class ProfileChangeRequestService {
     @Transactional
     public ProfileChangeRequestDto updateStatus(Long requestId, String status) {
         ProfileChangeRequest request = repository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Profile change request not found with id: " + requestId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.profile_change.not_found"));
 
         request.setStatus(status);
         ProfileChangeRequest updated = repository.save(request);

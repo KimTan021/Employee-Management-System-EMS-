@@ -29,7 +29,7 @@ public class DepartmentService {
     @Transactional
     public DepartmentDto createDepartment(DepartmentDto dto) {
         if (departmentRepository.findByName(dto.getName()).isPresent()) {
-            throw new IllegalArgumentException("Department with name '" + dto.getName() + "' already exists.");
+            throw new IllegalArgumentException("error.department.name_exists");
         }
 
         Department department = new Department();
@@ -39,17 +39,33 @@ public class DepartmentService {
     }
 
     @Transactional
+    public DepartmentDto updateDepartment(Integer id, DepartmentDto dto) {
+        Department department = departmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.department.not_found"));
+
+        departmentRepository.findByName(dto.getName()).ifPresent(existing -> {
+            if (!existing.getId().equals(id)) {
+                throw new IllegalArgumentException("error.department.name_exists");
+            }
+        });
+
+        department.setName(dto.getName());
+        Department updated = departmentRepository.save(department);
+        return toDto(updated);
+    }
+
+    @Transactional
     public void deleteDepartment(Integer id) {
         Department department = departmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.department.not_found"));
 
         // Validation: Cannot delete if any employees (active or inactive) are assigned
         if (employeeRepository.existsByDepartmentId(id)) {
             boolean hasActive = employeeRepository.existsByDepartmentIdAndActiveTrue(id);
             if (hasActive) {
-                throw new IllegalStateException("Cannot delete department '" + department.getName() + "' because it has active employees assigned to it.");
+                throw new IllegalStateException("error.department.delete_active");
             } else {
-                throw new IllegalStateException("Cannot delete department '" + department.getName() + "' because it still has inactive (deactivated) employee records assigned to it. These must be reassigned or resolved before deletion.");
+                throw new IllegalStateException("error.department.delete_inactive");
             }
         }
         

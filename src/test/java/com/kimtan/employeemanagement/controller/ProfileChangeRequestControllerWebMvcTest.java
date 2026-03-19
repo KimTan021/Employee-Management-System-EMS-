@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -24,7 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProfileChangeRequestControllerWebMvcTest {
 
     @Mock
-    private ProfileChangeRequestService profileChangeRequestService;
+    private ProfileChangeRequestService service;
+
+    @Mock
+    private MessageSource messageSource;
 
     @InjectMocks
     private ProfileChangeRequestController profileChangeRequestController;
@@ -33,8 +37,8 @@ class ProfileChangeRequestControllerWebMvcTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(profileChangeRequestController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+        mockMvc = MockMvcBuilders.standaloneSetup(new ProfileChangeRequestController(service))
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
     }
 

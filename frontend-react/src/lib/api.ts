@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
+import { API_BASE_URL } from '../constants/api';
 
 export const api = axios.create({
-  baseURL: 'http://localhost:8081/api',
+  baseURL: API_BASE_URL,
   // Don't set a global Content-Type. JSON requests will set it automatically,
   // and multipart uploads break if Content-Type is forced to application/json.
   headers: {

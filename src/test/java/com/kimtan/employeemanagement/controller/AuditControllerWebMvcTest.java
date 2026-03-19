@@ -6,9 +6,9 @@ import com.kimtan.employeemanagement.service.AuditLogService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -26,15 +26,18 @@ class AuditControllerWebMvcTest {
     @Mock
     private AuditLogService auditLogService;
 
-    @InjectMocks
+    @Mock
+    private MessageSource messageSource;
+
     private AuditController auditController;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
+        auditController = new AuditController(auditLogService); // Initialize manually
         mockMvc = MockMvcBuilders.standaloneSetup(auditController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
     }
 

@@ -27,7 +27,7 @@ public class AuthService {
 
         if (authentication.isAuthenticated()) {
             User user = userRepository.findByUsername(request.getUsername())
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                    .orElseThrow(() -> new UsernameNotFoundException("error.user.not_found"));
             String token = jwtService.generateToken(request.getUsername());
             
             return AuthResponse.builder()
@@ -36,7 +36,7 @@ public class AuthService {
                     .role(user.getRole())
                     .build();
         } else {
-            throw new UsernameNotFoundException("Invalid user request.");
+            throw new UsernameNotFoundException("error.user.invalid_credentials");
         }
     }
 }

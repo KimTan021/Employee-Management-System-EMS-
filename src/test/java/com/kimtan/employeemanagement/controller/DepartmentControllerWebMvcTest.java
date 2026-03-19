@@ -7,9 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -27,7 +27,9 @@ class DepartmentControllerWebMvcTest {
     @Mock
     private DepartmentService departmentService;
 
-    @InjectMocks
+    @Mock
+    private MessageSource messageSource;
+
     private DepartmentController departmentController;
 
     private MockMvc mockMvc;
@@ -35,8 +37,9 @@ class DepartmentControllerWebMvcTest {
 
     @BeforeEach
     void setUp() {
+        departmentController = new DepartmentController(departmentService);
         mockMvc = MockMvcBuilders.standaloneSetup(departmentController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
     }
 

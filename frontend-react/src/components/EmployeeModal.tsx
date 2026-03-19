@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useToast } from './ToastContext';
 import { api } from '../lib/api';
 import { BaseModal } from './ui/BaseModal';
+import { ENDPOINTS } from '../constants/api';
+import { MESSAGES } from '../constants/messages';
 
 interface EmployeeModalProps {
   isOpen: boolean;
@@ -13,6 +16,7 @@ interface EmployeeModalProps {
 }
 
 export default function EmployeeModal({ isOpen, onClose, onSave, initialData, title, isLoading }: EmployeeModalProps) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     empId: '',
     firstName: '',
@@ -35,7 +39,7 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
   const { data: departments = [], isLoading: departmentsLoading } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['departments'],
     queryFn: async () => {
-      const { data } = await api.get('/departments');
+      const { data } = await api.get(ENDPOINTS.DEPARTMENTS.BASE);
       return data;
     },
   });
@@ -105,24 +109,34 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
     let hasError = false;
 
     if (age < 18) {
-      setAgeError("Employee must be at least 18 years old.");
+      setAgeError(MESSAGES.VALIDATION.AGE_MIN);
       hasError = true;
     } else {
       setAgeError(null);
     }
 
     if (!validatePhilippinesPhone(formData.phone)) {
-      setPhoneError("Please enter a valid Philippines phone number (e.g. 0917 123 4567)");
+      setPhoneError(MESSAGES.VALIDATION.PHONE_PHILIPPINES);
       hasError = true;
     } else {
       setPhoneError(null);
     }
 
     if (!validatePhilippinesPhone(formData.emergencyContactPhone)) {
-      setEmergencyPhoneError("Please enter a valid Philippines phone number (e.g. 0917 123 4567)");
+      setEmergencyPhoneError(MESSAGES.VALIDATION.PHONE_PHILIPPINES);
       hasError = true;
     } else {
       setEmergencyPhoneError(null);
+    }
+
+    const trimmedFirstName = formData.firstName.trim();
+    const trimmedLastName = formData.lastName.trim();
+    const trimmedAddress = formData.address.trim();
+    const trimmedEmergencyName = formData.emergencyContactName.trim();
+
+    if (trimmedFirstName.length < 2 || trimmedLastName.length < 2) {
+      showToast('First and last name must be at least 2 characters', 'error');
+      hasError = true;
     }
 
     if (hasError) {
@@ -135,6 +149,10 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
 
     onSave({
       ...formData,
+      firstName: trimmedFirstName,
+      lastName: trimmedLastName,
+      address: trimmedAddress,
+      emergencyContactName: trimmedEmergencyName,
       salary: parseFloat(formData.salary),
       annualLeaveBalance: formData.annualLeaveBalance ? parseInt(formData.annualLeaveBalance, 10) : null,
       sickLeaveBalance: formData.sickLeaveBalance ? parseInt(formData.sickLeaveBalance, 10) : null,
@@ -159,7 +177,7 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
             onClick={onClose}
             className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
           >
-            Cancel
+            {MESSAGES.COMMON.CANCEL}
           </button>
           <button 
             type="submit" 
@@ -175,30 +193,25 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
       }
     >
       <form id="employee-form" onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-              Core Identity
-            </h3>
-            <span className="text-[10px] text-slate-400 font-medium">Fields with * are required</span>
-          </div>
-          
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+            {MESSAGES.UI.EMPLOYEE_MODAL.BASIC_INFO}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Employee ID {initialData ? '*' : '(Auto)'}</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_EMP_ID}</label>
               <input 
                 type="text" 
-                name="empId" 
-                value={initialData ? formData.empId : 'System Generated'} 
-                onChange={handleChange}
-                className={cn(inputClass, "bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed opacity-70")} 
-                placeholder="EMP-XXX" 
-                disabled={true} 
+                name="empId"
+                value={formData.empId} 
+                className={cn(inputClass, "bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed opacity-80")} 
+                readOnly 
+                placeholder="ID will be generated"
               />
             </div>
             <div>
-              <label className={labelClass}>Date of Birth *</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_DOB} *</label>
               <input required type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={(e) => { handleChange(e); setAgeError(null); }} 
                      className={cn(inputClass, ageError ? "border-rose-500 ring-rose-500/10" : "")} />
               {ageError && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">{ageError}</p>}
@@ -207,30 +220,30 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>First Name *</label>
-              <input required type="text" name="firstName" value={formData.firstName} onChange={handleChange} className={inputClass} placeholder="e.g. Juan" />
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_FIRST_NAME} *</label>
+              <input required minLength={2} type="text" name="firstName" value={formData.firstName} onChange={handleChange} className={inputClass} placeholder="e.g. Juan" />
             </div>
             <div>
-              <label className={labelClass}>Last Name *</label>
-              <input required type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputClass} placeholder="e.g. Dela Cruz" />
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_LAST_NAME} *</label>
+              <input required minLength={2} type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputClass} placeholder="e.g. Dela Cruz" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Department *</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_DEPARTMENT} *</label>
               <select required name="departmentName" value={formData.departmentName} onChange={handleChange} 
                       className={cn(inputClass, "appearance-none cursor-pointer")}
                       style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' }}
               >
-                {departments.length === 0 && <option value="">No departments</option>}
+                {departments.length === 0 && <option value="">{MESSAGES.UI.EMPLOYEE_MODAL.NO_DEPARTMENTS}</option>}
                 {departments.map((dept) => (
                   <option key={dept.id} value={dept.name}>{dept.name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelClass}>Base Salary ($) *</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_SALARY} *</label>
               <input required type="number" step="0.01" min="0" name="salary" value={formData.salary} onChange={handleChange} className={inputClass} placeholder="0.00" />
             </div>
           </div>
@@ -239,11 +252,11 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
         <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-            Contact & Location
+            {MESSAGES.UI.EMPLOYEE_MODAL.CONTACT_INFO}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Phone</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_PHONE}</label>
               <input type="text" name="phone" value={formData.phone} 
                      onChange={(e) => { handleChange(e); setPhoneError(null); }} 
                      className={cn(inputClass, phoneError ? "border-rose-500 ring-rose-500/10" : "")} 
@@ -251,7 +264,7 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
               {phoneError && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">{phoneError}</p>}
             </div>
             <div>
-              <label className={labelClass}>Emergency Phone</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_EMERGENCY_PHONE}</label>
               <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone} 
                      onChange={(e) => { handleChange(e); setEmergencyPhoneError(null); }} 
                      className={cn(inputClass, emergencyPhoneError ? "border-rose-500 ring-rose-500/10" : "")}
@@ -260,7 +273,7 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
             </div>
           </div>
           <div>
-            <label className={labelClass}>Home Address</label>
+            <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_ADDRESS}</label>
             <input type="text" name="address" value={formData.address} onChange={handleChange} className={inputClass} placeholder="e.g. 123 Makati Ave, Manila" />
           </div>
         </div>
@@ -268,19 +281,19 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, ti
         <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            Policy Entitlements
+            {MESSAGES.UI.EMPLOYEE_MODAL.EMPLOYMENT_INFO}
           </h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className={labelClass}>Annual Leave</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_ANNUAL_LEAVE}</label>
               <input type="number" min="0" name="annualLeaveBalance" value={formData.annualLeaveBalance} onChange={handleChange} className={inputClass} placeholder="e.g. 15" />
             </div>
             <div>
-              <label className={labelClass}>Sick Leave</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_SICK_LEAVE}</label>
               <input type="number" min="0" name="sickLeaveBalance" value={formData.sickLeaveBalance} onChange={handleChange} className={inputClass} placeholder="e.g. 10" />
             </div>
             <div>
-              <label className={labelClass}>Personal Leave</label>
+              <label className={labelClass}>{MESSAGES.UI.EMPLOYEE_MODAL.FIELD_PERSONAL_LEAVE}</label>
               <input type="number" min="0" name="personalLeaveBalance" value={formData.personalLeaveBalance} onChange={handleChange} className={inputClass} placeholder="e.g. 5" />
             </div>
           </div>

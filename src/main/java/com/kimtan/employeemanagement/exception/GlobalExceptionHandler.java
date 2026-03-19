@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.context.NoSuchMessageException;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -18,7 +21,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@lombok.RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final MessageSource messageSource;
+
+    private String resolveMessage(String key, Object... args) {
+        try {
+            return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+        } catch (NoSuchMessageException e) {
+            return key;
+        }
+    }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
@@ -26,8 +40,8 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.NOT_FOUND.value(),
-                "Resource Not Found",
-                Collections.singletonList(ex.getMessage())
+                resolveMessage("error.resource.not_found"),
+                Collections.singletonList(resolveMessage(ex.getMessage()))
         );
     }
 
@@ -58,8 +72,8 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.FORBIDDEN.value(),
-                "Access Denied",
-                Collections.singletonList(ex.getMessage())
+                resolveMessage("error.access_denied"),
+                Collections.singletonList(resolveMessage(ex.getMessage()))
         );
     }
 
@@ -70,7 +84,7 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
-                Collections.singletonList(ex.getMessage())
+                Collections.singletonList(resolveMessage(ex.getMessage()))
         );
     }
 
@@ -81,7 +95,7 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
-                Collections.singletonList(ex.getMessage())
+                Collections.singletonList(resolveMessage(ex.getMessage()))
         );
     }
 
@@ -124,8 +138,8 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal Server Error",
-                Collections.singletonList(ex.getMessage())
+                resolveMessage("error.internal_server_error"),
+                Collections.singletonList(resolveMessage(ex.getMessage()))
         );
     }
 }

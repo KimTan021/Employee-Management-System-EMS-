@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PortalControllerWebMvcTest {
 
     @Mock private EmployeeService employeeService;
+    @Mock private MessageSource messageSource;
     @Mock private LeaveRequestService leaveRequestService;
     @Mock private UserManagementService userManagementService;
     @Mock private DocumentService documentService;
@@ -46,8 +48,8 @@ class PortalControllerWebMvcTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(portalController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+        mockMvc = MockMvcBuilders.standaloneSetup(new PortalController(employeeService, leaveRequestService, userManagementService, documentService, auditLogService, profileChangeRequestService))
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
 
         me = new EmployeeResponse();

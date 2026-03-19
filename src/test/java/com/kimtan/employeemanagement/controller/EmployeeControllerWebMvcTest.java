@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -38,6 +39,9 @@ class EmployeeControllerWebMvcTest {
     @Mock
     private EmployeeService employeeService;
 
+    @Mock
+    private MessageSource messageSource;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -45,7 +49,7 @@ class EmployeeControllerWebMvcTest {
     void setUp() {
         objectMapper = new ObjectMapper().findAndRegisterModules();
         mockMvc = MockMvcBuilders.standaloneSetup(new EmployeeController(employeeService))
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
     }
 

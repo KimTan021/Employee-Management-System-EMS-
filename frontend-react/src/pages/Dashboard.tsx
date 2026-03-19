@@ -12,6 +12,8 @@ import { cn } from '../lib/utils';
 import { exportEmployeesToPDF } from '../lib/pdfExport';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useQueryClient } from '@tanstack/react-query';
+import { ENDPOINTS } from '../constants/api';
+import { MESSAGES } from '../constants/messages';
 
 // Types
 interface Employee {
@@ -47,13 +49,13 @@ export default function Dashboard() {
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [employeePage, setEmployeePage] = useState(1);
-  const employeePageSize = 8;
+  const employeePageSize = 5;
 
   // Fetch Employees
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ['employees', showDeactivated],
     queryFn: async () => {
-      const { data } = await api.get(`/employees?active=${!showDeactivated}`);
+      const { data } = await api.get(ENDPOINTS.EMPLOYEES.LIST(!showDeactivated));
       return data;
     },
   });
@@ -62,7 +64,7 @@ export default function Dashboard() {
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
-      const { data } = await api.get('/employees/statistics');
+      const { data } = await api.get(ENDPOINTS.EMPLOYEES.STATISTICS);
       return data;
     },
   });
@@ -110,12 +112,12 @@ export default function Dashboard() {
 
   const handleExportPDF = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
-      showToast('No data to export', 'info');
+      showToast(MESSAGES.COMMON.NO_DATA_EXPORT, 'info');
       return;
     }
     
     if (!stats) {
-      showToast('Statistics not loaded', 'error');
+      showToast(MESSAGES.COMMON.STATS_NOT_LOADED, 'error');
       return;
     }
 
@@ -124,12 +126,12 @@ export default function Dashboard() {
       stats, 
       'Admin Dashboard: Employee Directory'
     );
-    showToast('PDF report generated', 'success');
+    showToast(MESSAGES.COMMON.PDF_EXPORT_SUCCESS, 'success');
   };
 
   const handleExportCSV = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
-      showToast('No data to export', 'info');
+      showToast(MESSAGES.COMMON.NO_DATA_EXPORT, 'info');
       return;
     }
     const headers = ['ID', 'Employee ID', 'First Name', 'Last Name', 'Department', 'Date of Birth', 'Salary'];
@@ -154,13 +156,13 @@ export default function Dashboard() {
     if (!deleteId) return;
     setIsDeleting(true);
     try {
-      await api.delete(`/employees/${deleteId}/permanent`);
-      showToast('Employee permanently deleted', 'success');
+      await api.delete(ENDPOINTS.EMPLOYEES.PERMANENT(deleteId));
+      showToast(MESSAGES.EMPLOYEE.DELETE_SUCCESS, 'success');
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       setDeleteId(null);
     } catch (error) {
-      showToast('Error deleting employee', 'error');
+      showToast(MESSAGES.EMPLOYEE.DELETE_ERROR, 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -223,16 +225,16 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-4">
           <h1 className="text-4xl md:text-5xl font-light font-display tracking-tight text-slate-800 dark:text-white mb-2">
-            Admin <span className="font-semibold">Dashboard</span>
+            {MESSAGES.UI.ADMIN_DASHBOARD.TITLE.split(' ')[0]} <span className="font-semibold">{MESSAGES.UI.ADMIN_DASHBOARD.TITLE.split(' ')[1]}</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">Manage your workforce, departments, and user accounts.</p>
+          <p className="text-slate-500 dark:text-slate-400">{MESSAGES.UI.ADMIN_DASHBOARD.SUBTITLE}</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Total Employees', value: stats?.totalEmployees ?? 0, icon: 'Users', color: 'rose' },
-            { label: 'Departments', value: stats?.departmentCount ?? 0, icon: 'Hexagon', color: 'amber' },
+            { label: MESSAGES.UI.HR_DASHBOARD.COL_EMPLOYEE_INFO.split(' ')[1] + 's', value: stats?.totalEmployees ?? 0, icon: 'Users', color: 'rose' },
+            { label: MESSAGES.UI.HR_DASHBOARD.TAB_DEPARTMENTS, value: stats?.departmentCount ?? 0, icon: 'Hexagon', color: 'amber' },
             { label: 'Avg Salary', value: `$${Math.round(stats?.averageSalary ?? 0).toLocaleString()}`, icon: 'DollarSign', color: 'indigo' },
             { label: 'Avg Age', value: `${Math.round(stats?.averageAge ?? 0)} yrs`, icon: 'Calendar', color: 'emerald' },
           ].map((stat, idx) => (
@@ -255,10 +257,30 @@ export default function Dashboard() {
         </div>
 
         {/* Admin Tabs */}
-        <div className="flex items-center justify-center gap-2 bg-white/70 backdrop-blur-md dark:bg-slate-800/80 p-2 rounded-full shadow-sm border border-white/40 dark:border-slate-700/50">
-          <button onClick={() => setActiveAdminTab('overview')} className={cn("px-5 py-2 rounded-full text-sm font-medium transition-colors", activeAdminTab === 'overview' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:hover:text-white')}>Overview</button>
-          <button onClick={() => setActiveAdminTab('users')} className={cn("px-5 py-2 rounded-full text-sm font-medium transition-colors", activeAdminTab === 'users' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 dark:hover:text-white')}>User Accounts</button>
-        </div>
+          <div className="flex items-center justify-center gap-2 bg-white/70 backdrop-blur-md dark:bg-slate-800/80 p-2 rounded-full shadow-sm border border-white/40 dark:border-slate-700/50">
+            <button 
+              onClick={() => setActiveAdminTab('overview')} 
+              className={cn(
+                "px-6 py-2.5 rounded-full text-sm font-medium transition-all",
+                activeAdminTab === 'overview' 
+                  ? "bg-rose-600 text-white shadow-lg shadow-rose-500/25" 
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              )}
+            >
+              {MESSAGES.UI.ADMIN_DASHBOARD.TAB_OVERVIEW}
+            </button>
+            <button 
+              onClick={() => setActiveAdminTab('users')} 
+              className={cn(
+                "px-6 py-2.5 rounded-full text-sm font-medium transition-all",
+                activeAdminTab === 'users' 
+                  ? "bg-rose-600 text-white shadow-lg shadow-rose-500/25" 
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              )}
+            >
+              {MESSAGES.UI.ADMIN_DASHBOARD.TAB_USERS}
+            </button>
+          </div>
 
         {activeAdminTab === 'users' ? (
           <UserManagement />
@@ -266,8 +288,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Charts Column */}
             <div className="lg:col-span-4 space-y-8">
-              <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50">
-                <h3 className="text-lg font-semibold font-display text-slate-900 dark:text-white mb-6">Department Distribution</h3>
+                <div className="lg:col-span-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 flex flex-col items-center">
+                  <h3 className="text-slate-800 dark:text-white font-semibold text-lg mb-6 self-start">{MESSAGES.UI.ADMIN_DASHBOARD.SYSTEM_OVERVIEW}</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -352,15 +374,21 @@ export default function Dashboard() {
                <div className="p-4 overflow-x-auto">
                  <table className="w-full text-left text-sm border-separate border-spacing-y-2">
                    <thead className="text-slate-400 font-bold uppercase text-[10px] tracking-widest hidden md:table-header-group">
-                     <tr>
-                       <th className="px-6 py-3">Employee</th>
-                       <th className="px-6 py-3">Department</th>
-                       <th className="px-6 py-3">Details</th>
-                     </tr>
+                      <tr>
+                        <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_EMPLOYEE_INFO}</th>
+                        <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_DEPARTMENT}</th>
+                        <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_SALARY_AGE}</th>
+                        <th className="px-6 py-4 text-right">{MESSAGES.UI.COMMON.ACTIONS}</th>
+                      </tr>
                    </thead>
                    <tbody className="md:table-row-group flex flex-col gap-4 md:gap-0">
                      {isLoading ? (
-                       <tr><td colSpan={3} className="px-6 py-12 text-center text-slate-500"><div className="w-8 h-8 rounded-full border-2 border-rose-500 border-t-transparent animate-spin mx-auto mb-2"></div>Loading...</td></tr>
+                       <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                            <div className="flex flex-col items-center gap-4">
+                              <div className="w-10 h-10 rounded-full border-2 border-rose-500 border-t-transparent animate-spin"></div>
+                              <p className="text-slate-500 font-medium">{MESSAGES.UI.HR_DASHBOARD.LOADING_WORKFORCE}</p>
+                            </div>
+                        </td></tr>
                      ) : (
                        pagedEmployees.map(emp => (
                          <tr key={emp.id} className="bg-slate-50/50 hover:bg-white dark:bg-slate-900/40 dark:hover:bg-slate-900/60 transition-all rounded-2xl shadow-sm hover:shadow-md flex flex-col md:table-row cursor-default">
@@ -379,19 +407,22 @@ export default function Dashboard() {
                               <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1 font-bold">Department</span>
                               <span className="px-3 py-1 bg-white dark:bg-slate-800 rounded-lg text-xs font-semibold border border-slate-100 dark:border-slate-800 shadow-sm">{emp.departmentName}</span>
                            </td>
-                           <td className="px-6 py-4 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none">
+                           <td className="px-6 py-4">
                               <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1 font-bold">Details</span>
-                              <div className="flex items-center gap-4">
-                                <span className="text-slate-500 dark:text-slate-400 text-xs">Age: <span className="text-slate-900 dark:text-white font-medium">{calculateAge(emp.dateOfBirth)}</span></span>
-                                <span className="text-slate-500 dark:text-slate-400 text-xs">Salary: <span className="text-slate-900 dark:text-white font-medium">${emp.salary.toLocaleString()}</span></span>
-                                
+                              <div className="flex flex-col">
+                                <span className="text-slate-900 dark:text-slate-100 font-semibold">${emp.salary.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{calculateAge(emp.dateOfBirth)} {MESSAGES.UI.HR_DASHBOARD.YEARS_OLD}</span>
+                              </div>
+                            </td>
+                           <td className="px-6 py-4 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none text-right">
+                              <div className="flex items-center justify-end gap-2">
                                 {showDeactivated && (
                                   <button 
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setDeleteId(emp.id);
                                     }}
-                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-lg transition-colors ml-auto"
+                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-lg transition-colors"
                                     title="Permanently Delete"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -405,9 +436,10 @@ export default function Dashboard() {
                    </tbody>
                  </table>
                </div>
-               
-               <div className="p-8 flex items-center justify-between border-t border-slate-100 dark:border-slate-700">
-                  <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">Page {employeePage} / {totalEmployeePages}</span>
+                              <div className="px-8 py-6 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white">{employeePage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalEmployeePages}
+                    </span>
                   <div className="flex gap-2">
                     <button onClick={() => setEmployeePage(p => Math.max(1, p - 1))} disabled={employeePage === 1} className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl disabled:opacity-30 transition-all font-semibold text-xs uppercase tracking-widest">Prev</button>
                     <button onClick={() => setEmployeePage(p => Math.min(totalEmployeePages, p + 1))} disabled={employeePage === totalEmployeePages} className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl disabled:opacity-30 transition-all font-semibold text-xs uppercase tracking-widest">Next</button>

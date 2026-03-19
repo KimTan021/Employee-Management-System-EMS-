@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { BaseModal } from './ui/BaseModal';
+import { ENDPOINTS } from '../constants/api';
+import { MESSAGES } from '../constants/messages';
 
 interface AuditLog {
   id: number;
@@ -15,15 +17,15 @@ export default function AuditLogModal({ isOpen, onClose, entityId, entityType, e
   const { data: logs, isLoading } = useQuery<AuditLog[]>({
     queryKey: ['auditLogs', entityType, entityId],
     queryFn: async () => {
-      const { data } = await api.get(`/admin/audit/${entityType}/${entityId}`);
+      const { data } = await api.get(ENDPOINTS.AUDIT.ENTITY(entityType, entityId!));
       return data;
     },
     enabled: isOpen && !!entityId,
   });
 
   const renderValueChanges = (oldVal: string, newVal: string, action: string) => {
-    if (action === 'DELETE') return <div className="text-rose-500 text-xs font-bold uppercase tracking-widest mt-1">Record Purged</div>;
-    if (action === 'CREATE') return <div className="text-emerald-500 text-xs font-bold uppercase tracking-widest mt-1">Record Born</div>;
+    if (action === 'DELETE') return <div className="text-rose-500 text-xs font-bold uppercase tracking-widest mt-1">{MESSAGES.UI.AUDIT_LOG.RECORD_PURGED}</div>;
+    if (action === 'CREATE') return <div className="text-emerald-500 text-xs font-bold uppercase tracking-widest mt-1">{MESSAGES.UI.AUDIT_LOG.RECORD_BORN}</div>;
     
     try {
         const o = JSON.parse(oldVal || '{}');
@@ -35,21 +37,21 @@ export default function AuditLogModal({ isOpen, onClose, entityId, entityType, e
                     <div key={key} className="flex flex-col gap-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/50">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{key}</span>
                         <div className="flex items-center gap-2 text-xs">
-                           <span className="line-through text-rose-500/70 opacity-60 truncate max-w-[100px]">{String(o[key] || 'empty')}</span>
+                           <span className="line-through text-rose-500/70 opacity-60 truncate max-w-[100px]">{String(o[key] || MESSAGES.UI.AUDIT_LOG.EMPTY)}</span>
                            <span className="text-slate-300">&rarr;</span>
-                           <span className="text-emerald-600 dark:text-emerald-400 font-bold truncate">{String(n[key] || 'null')}</span>
+                           <span className="text-emerald-600 dark:text-emerald-400 font-bold truncate">{String(n[key] || MESSAGES.UI.AUDIT_LOG.NULL)}</span>
                         </div>
-                    </div>
+                      </div>
                 );
             }
         }
         return changes.length > 0 ? (
           <div className="grid grid-cols-1 gap-2 mt-2">{changes}</div>
         ) : (
-          <div className="text-xs mt-1 text-slate-400 italic">No field updates detected</div>
+          <div className="text-xs mt-1 text-slate-400 italic">{MESSAGES.UI.AUDIT_LOG.NO_UPDATES}</div>
         );
     } catch(e) {
-        return <div className="text-xs mt-1 text-slate-400">Metadata updated</div>;
+        return <div className="text-xs mt-1 text-slate-400">{MESSAGES.UI.AUDIT_LOG.METADATA_UPDATED}</div>;
     }
   };
 
@@ -57,7 +59,7 @@ export default function AuditLogModal({ isOpen, onClose, entityId, entityType, e
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title="System Audit Log"
+      title={MESSAGES.UI.AUDIT_LOG.TITLE}
       maxWidth="lg"
       isLoading={isLoading}
       footer={
@@ -66,7 +68,7 @@ export default function AuditLogModal({ isOpen, onClose, entityId, entityType, e
             onClick={onClose}
             className="px-8 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl text-sm font-bold transition-all"
           >
-            Close
+            {MESSAGES.UI.COMMON.CLOSE}
           </button>
         </div>
       }
@@ -78,13 +80,13 @@ export default function AuditLogModal({ isOpen, onClose, entityId, entityType, e
           </div>
           <div>
             <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{entityName}</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Lifecycle Tracking</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">{MESSAGES.UI.AUDIT_LOG.LIFECYCLE_TRACKING}</p>
           </div>
         </div>
 
         {!logs || logs.length === 0 ? (
           <div className="text-center py-16 bg-slate-50/50 dark:bg-slate-900/20 rounded-3xl border border-slate-100 dark:border-slate-800">
-             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No audit trails found</p>
+             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{MESSAGES.UI.AUDIT_LOG.NO_AUDIT_TRAILS}</p>
           </div>
         ) : (
           <div className="space-y-6">

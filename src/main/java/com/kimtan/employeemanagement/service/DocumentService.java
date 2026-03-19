@@ -41,10 +41,10 @@ public class DocumentService {
     @Transactional
     public DocumentDto uploadFile(Long employeeId, MultipartFile file, String uploadedBy) {
         Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + employeeId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.not_found"));
 
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("Cannot upload an empty file");
+            throw new IllegalArgumentException("error.document.empty_file");
         }
 
         String originalFilename = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown.file");
@@ -81,7 +81,7 @@ public class DocumentService {
             return documentMapper.toDto(savedDocument);
 
         } catch (IOException e) {
-            throw new RuntimeException("Could not store file " + originalFilename + ". Please try again!", e);
+            throw new RuntimeException("error.document.upload_failed", e);
         }
     }
 
@@ -93,7 +93,7 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public Resource loadFileAsResource(Long documentId) {
         Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.document.not_found"));
 
         try {
             Path fileStorageLocation = Paths.get(uploadDirectory).toAbsolutePath().normalize();
@@ -103,17 +103,17 @@ public class DocumentService {
             if (resource.exists() && resource.isReadable()) {
                 return resource;
             } else {
-                throw new ResourceNotFoundException("File not found: " + document.getFileName());
+                throw new ResourceNotFoundException("error.document.file_not_found");
             }
         } catch (MalformedURLException ex) {
-            throw new ResourceNotFoundException("File not found: " + document.getFileName());
+            throw new ResourceNotFoundException("error.document.file_not_found");
         }
     }
 
     @Transactional
     public void deleteDocument(Long documentId, org.springframework.security.core.Authentication authentication) {
         Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.document.not_found"));
 
         try {
             boolean isAdmin = authentication.getAuthorities().stream()
@@ -121,7 +121,7 @@ public class DocumentService {
             String username = authentication.getName();
 
             if (!isAdmin && !document.getUploadedBy().equals(username)) {
-                throw new org.springframework.security.access.AccessDeniedException("You do not have permission to delete this document");
+                throw new org.springframework.security.access.AccessDeniedException("error.access_denied");
             }
 
             Path fileStorageLocation = Paths.get(uploadDirectory).toAbsolutePath().normalize();
@@ -137,7 +137,7 @@ public class DocumentService {
 
             documentRepository.delete(document);
         } catch (IOException ex) {
-            throw new RuntimeException("Could not delete file " + document.getFileName() + ". Please try again!", ex);
+            throw new RuntimeException("error.document.delete_failed", ex);
         }
     }
 }

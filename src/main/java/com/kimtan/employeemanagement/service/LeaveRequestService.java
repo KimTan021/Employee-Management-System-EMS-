@@ -26,15 +26,15 @@ public class LeaveRequestService {
 
     public LeaveRequestDto createLeaveRequest(LeaveRequestDto requestDto) {
         Employee employee = employeeRepository.findById(requestDto.getEmployeeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + requestDto.getEmployeeId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.not_found"));
 
         // Date validation
         LocalDate today = LocalDate.now();
         if (requestDto.getStartDate().isBefore(today)) {
-            throw new IllegalArgumentException("Leave start date cannot be in the past.");
+            throw new IllegalArgumentException("error.leave.date_past");
         }
         if (requestDto.getEndDate().isBefore(requestDto.getStartDate())) {
-            throw new IllegalArgumentException("Leave end date must be on or after the start date.");
+            throw new IllegalArgumentException("error.leave.date_order");
         }
 
         LeaveRequest leaveRequest = leaveRequestMapper.toEntity(requestDto);
@@ -59,7 +59,7 @@ public class LeaveRequestService {
 
     public LeaveRequestDto updateLeaveStatus(Long id, String status) {
         LeaveRequest leaveRequest = leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Leave request not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leave_request.not_found"));
         
         leaveRequest.setStatus(status);
         LeaveRequest updatedRequest = leaveRequestRepository.save(leaveRequest);

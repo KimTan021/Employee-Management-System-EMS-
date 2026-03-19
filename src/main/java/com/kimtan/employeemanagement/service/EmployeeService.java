@@ -64,7 +64,7 @@ public class EmployeeService implements EmployeeProcessingService {
     @Transactional(readOnly = true)
     public EmployeeResponse getEmployeeByUsername(String username) {
         Employee employee = employeeRepository.findByUserUsernameAndActiveTrue(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee profile not found for user: " + username));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.username_not_found"));
         return employeeMapper.toDto(employee);
     }
 
@@ -146,8 +146,8 @@ public class EmployeeService implements EmployeeProcessingService {
     public void permanentlyDeleteEmployee(Long id) {
         Employee employee = getEmployeeEntity(id);
         
-        if (Boolean.TRUE.equals(employee.getActive())) {
-            throw new IllegalStateException("Cannot permanently delete an active employee. Deactivate them first.");
+        if (employee.getActive()) {
+            throw new IllegalStateException("error.employee.delete_active_permanent");
         }
 
         String oldValue = null;
@@ -272,7 +272,7 @@ public class EmployeeService implements EmployeeProcessingService {
 
     private Employee getEmployeeEntity(Long id) {
         return employeeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.not_found"));
     }
 
     private Department getDepartmentByName(String name) {
@@ -282,9 +282,8 @@ public class EmployeeService implements EmployeeProcessingService {
 
     private void validateAge(LocalDate dateOfBirth) {
         if (dateOfBirth == null) return;
-        LocalDate minimumDate = LocalDate.now().minusYears(18);
-        if (dateOfBirth.isAfter(minimumDate)) {
-            throw new IllegalArgumentException("Employee must be at least 18 years old.");
+        if (Period.between(dateOfBirth, LocalDate.now()).getYears() < 18) {
+            throw new IllegalArgumentException("error.invalid_age");
         }
     }
 

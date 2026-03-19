@@ -9,6 +9,8 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { BaseModal } from '../components/ui/BaseModal';
 import { useTheme } from '../components/theme-provider';
 import { cn, formatDateKey, parseLocalDate } from '../lib/utils';
+import { ENDPOINTS } from '../constants/api';
+import { MESSAGES } from '../constants/messages';
 
 // Types
 interface LeaveRequest {
@@ -95,13 +97,17 @@ export default function PortalDashboard() {
     emergencyContactPhone: ''
   });
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
+  const [leavePage, setLeavePage] = useState(1);
+  const leavePageSize = 5;
+  const [profileChangePage, setProfileChangePage] = useState(1);
+  const profileChangePageSize = 5;
 
 
   // Fetch Profile
   const { data: profile, isLoading: profileLoading } = useQuery<EmployeeProfile>({
     queryKey: ['myProfile'],
     queryFn: async () => {
-      const { data } = await api.get('/portal/me');
+      const { data } = await api.get(ENDPOINTS.PORTAL.ME);
       return data;
     },
   });
@@ -110,7 +116,7 @@ export default function PortalDashboard() {
   const { data: leaves = [], isLoading: leavesLoading } = useQuery<LeaveRequest[]>({
     queryKey: ['myLeaves'],
     queryFn: async () => {
-      const { data } = await api.get('/portal/leaves');
+      const { data } = await api.get(ENDPOINTS.PORTAL.LEAVES);
       return data;
     },
   });
@@ -119,7 +125,7 @@ export default function PortalDashboard() {
   const { data: leaveBalance } = useQuery<LeaveBalance>({
     queryKey: ['myLeaveBalance'],
     queryFn: async () => {
-      const { data } = await api.get('/portal/leave-balance');
+      const { data } = await api.get(ENDPOINTS.PORTAL.LEAVE_BALANCE);
       return data;
     },
   });
@@ -128,7 +134,7 @@ export default function PortalDashboard() {
   const { data: documents = [], isLoading: documentsLoading } = useQuery<DocumentInfo[]>({
     queryKey: ['myDocuments'],
     queryFn: async () => {
-      const { data } = await api.get('/portal/documents');
+      const { data } = await api.get(ENDPOINTS.PORTAL.DOCUMENTS);
       return data;
     },
   });
@@ -137,7 +143,7 @@ export default function PortalDashboard() {
   const { data: auditLogs = [], isLoading: auditLogsLoading } = useQuery<AuditLog[]>({
     queryKey: ['myAuditLogs'],
     queryFn: async () => {
-      const { data } = await api.get('/portal/audit');
+      const { data } = await api.get(ENDPOINTS.PORTAL.AUDIT);
       return data;
     },
   });
@@ -146,29 +152,29 @@ export default function PortalDashboard() {
   const { data: profileChanges = [], isLoading: profileChangesLoading } = useQuery<ProfileChangeRequest[]>({
     queryKey: ['myProfileChanges'],
     queryFn: async () => {
-      const { data } = await api.get('/portal/profile-changes');
+      const { data } = await api.get(ENDPOINTS.PORTAL.PROFILE_CHANGES);
       return data;
     },
   });
 
   // Submit Leave Mutation
   const submitLeave = useMutation({
-    mutationFn: (newLeave: any) => api.post('/portal/leaves', newLeave),
+    mutationFn: (newLeave: any) => api.post(ENDPOINTS.PORTAL.LEAVES, newLeave),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myLeaves'] });
       setIsLeaveModalOpen(false);
       setLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
-      showToast('Leave request submitted', 'success');
+      showToast(MESSAGES.LEAVE.SUBMIT_SUCCESS, 'success');
     },
     onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error submitting leave', 'error')
   });
 
   const submitProfileChange = useMutation({
-    mutationFn: (payload: any) => api.post('/portal/profile-changes', payload),
+    mutationFn: (payload: any) => api.post(ENDPOINTS.PORTAL.PROFILE_CHANGES, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myProfileChanges'] });
       setIsProfileChangeModalOpen(false);
-      showToast('Profile update request submitted', 'success');
+      showToast(MESSAGES.PROFILE_CHANGE.CREATE_SUCCESS, 'success');
     },
     onError: (err: any) => showToast(err.response?.data?.details?.[0] || err.response?.data?.message || 'Error submitting request', 'error'),
   });
@@ -195,27 +201,30 @@ export default function PortalDashboard() {
     e.preventDefault();
 
     if (!leaveForm.startDate || !leaveForm.endDate) {
-      showToast('Please select both start and end dates.', 'error');
+      showToast(MESSAGES.VALIDATION.DATE_REQUIRED, 'error');
       return;
     }
 
     const today = formatDateKey(new Date());
     if (leaveForm.startDate < today) {
-      showToast('Leave start date cannot be in the past.', 'error');
+      showToast(MESSAGES.VALIDATION.DATE_PAST, 'error');
       return;
     }
 
     if (leaveForm.endDate < leaveForm.startDate) {
-      showToast('End date must be on or after the start date.', 'error');
+      showToast(MESSAGES.VALIDATION.DATE_ORDER, 'error');
       return;
     }
 
     if (!leaveForm.type) {
-      showToast('Please select a leave type.', 'error');
+      showToast(MESSAGES.VALIDATION.LEAVE_TYPE_REQUIRED, 'error');
       return;
     }
 
-    submitLeave.mutate(leaveForm);
+    submitLeave.mutate({
+      ...leaveForm,
+      reason: leaveForm.reason.trim()
+    });
   };
 
   const validatePhPhone = (phone: string) => {
@@ -229,10 +238,19 @@ export default function PortalDashboard() {
     
     const errors: Record<string, string> = {};
     if (!validatePhPhone(profileChangeForm.phone)) {
-      errors.phone = "Invalid Philippines phone format.";
+      errors.phone = MESSAGES.VALIDATION.PHONE_PHILIPPINES;
     }
     if (!validatePhPhone(profileChangeForm.emergencyContactPhone)) {
-      errors.emergencyContactPhone = "Invalid Philippines phone format.";
+      errors.emergencyContactPhone = MESSAGES.VALIDATION.PHONE_PHILIPPINES;
+    }
+
+    const trimmedPhone = profileChangeForm.phone.trim();
+    const trimmedAddress = profileChangeForm.address.trim();
+    const trimmedEmergencyName = profileChangeForm.emergencyContactName.trim();
+    const trimmedEmergencyPhone = profileChangeForm.emergencyContactPhone.trim();
+
+    if (trimmedEmergencyName && trimmedEmergencyName.length < 2) {
+      errors.emergencyContactName = 'Name must be at least 2 characters';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -241,7 +259,12 @@ export default function PortalDashboard() {
     }
 
     setProfileErrors({});
-    submitProfileChange.mutate(profileChangeForm);
+    submitProfileChange.mutate({
+      phone: trimmedPhone,
+      address: trimmedAddress,
+      emergencyContactName: trimmedEmergencyName,
+      emergencyContactPhone: trimmedEmergencyPhone
+    });
   };
 
   // Change password handled by shared modal
@@ -256,7 +279,7 @@ export default function PortalDashboard() {
 
   const handleDownloadDocument = async (docId: number, fileName: string) => {
     try {
-      const response = await api.get(`/portal/documents/download/${docId}`, {
+      const response = await api.get(ENDPOINTS.PORTAL.DOWNLOAD(docId), {
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -267,7 +290,7 @@ export default function PortalDashboard() {
       link.click();
       link.remove();
     } catch (err) {
-      showToast('Error downloading document', 'error');
+      showToast(MESSAGES.DOCUMENT.DOWNLOAD_ERROR, 'error');
     }
   };
 
@@ -298,6 +321,32 @@ export default function PortalDashboard() {
     }
     return { year, month, cells };
   }, []);
+
+
+  const totalLeavePages = Math.max(1, Math.ceil(leaves.length / leavePageSize));
+  const pagedLeaves = leaves.slice(
+    (leavePage - 1) * leavePageSize,
+    leavePage * leavePageSize
+  );
+
+  const totalProfileChangePages = Math.max(1, Math.ceil(profileChanges.length / profileChangePageSize));
+
+  useEffect(() => {
+    if (leavePage > totalLeavePages) {
+      setLeavePage(totalLeavePages);
+    }
+  }, [totalLeavePages, leavePage]);
+
+  useEffect(() => {
+    if (profileChangePage > totalProfileChangePages) {
+      setProfileChangePage(totalProfileChangePages);
+    }
+  }, [totalProfileChangePages, profileChangePage]);
+
+  const pagedProfileChanges = profileChanges.slice(
+    (profileChangePage - 1) * profileChangePageSize,
+    profileChangePage * profileChangePageSize
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#eef2f6] via-[#fdfaf4] to-[#faedd0] dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-4 sm:p-6 md:p-8 font-sans transition-colors duration-300">
@@ -349,10 +398,17 @@ export default function PortalDashboard() {
         
         {/* Welcome Section */}
         <div className="mb-4">
-          <h1 className="text-4xl md:text-5xl font-light font-display tracking-tight text-slate-800 dark:text-white mb-2">
-            Welcome, <span className="font-semibold">{profile?.firstName || username}</span>
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400">Here's an overview of your employee record and leave status.</p>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700/50 flex items-center justify-center text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+              {username?.charAt(0).toUpperCase() || 'E'}
+            </div>
+            <div>
+              <h1 className="text-3xl font-light font-display text-slate-800 dark:text-white tracking-tight leading-tight">
+                {MESSAGES.UI.PORTAL_DASHBOARD.WELCOME}, <span className="font-semibold">{username}!</span>
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">{MESSAGES.UI.PORTAL_DASHBOARD.TITLE}</p>
+            </div>
+          </div>
         </div>
 
         {/* Profile Grid */}
@@ -361,7 +417,7 @@ export default function PortalDashboard() {
           <div className="lg:col-span-8 bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50">
             <h2 className="text-xl font-semibold font-display text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4 mb-6 flex items-center gap-2">
               <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-              My Official Record
+              {MESSAGES.UI.PORTAL_DASHBOARD.TAB_MY_RECORD}
             </h2>
             {profileLoading ? (
               <div className="py-12 flex justify-center"><div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div></div>
@@ -389,14 +445,14 @@ export default function PortalDashboard() {
           <div className="lg:col-span-4 bg-slate-900 dark:bg-slate-950 p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[300px]">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
             <div className="relative z-10">
-              <h3 className="text-2xl font-display font-semibold mb-2">Need to update your details?</h3>
-              <p className="text-indigo-200/70 text-sm mb-6">Request changes to your contact or emergency information.</p>
+              <h3 className="text-2xl font-display font-semibold mb-2">{MESSAGES.UI.PORTAL_DASHBOARD.UPDATE_DETAILS_TITLE}</h3>
+              <p className="text-indigo-200/70 text-sm mb-6">{MESSAGES.UI.PORTAL_DASHBOARD.UPDATE_DETAILS_SUBTITLE}</p>
             </div>
             <button
               onClick={() => setIsProfileChangeModalOpen(true)}
               className="relative z-10 w-full py-4 bg-white text-slate-900 hover:bg-indigo-50 rounded-2xl font-semibold transition-all shadow-lg flex items-center justify-center gap-2 group"
             >
-              Update Profile
+              {MESSAGES.UI.PORTAL_DASHBOARD.UPDATE_PROFILE}
               <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
             </button>
           </div>
@@ -407,7 +463,7 @@ export default function PortalDashboard() {
           <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 hover:shadow-md transition-shadow">
             <h2 className="text-xl font-semibold font-display text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              Leave Balance
+              {MESSAGES.UI.PORTAL_DASHBOARD.TAB_LEAVE_BALANCE}
             </h2>
             <div className="grid grid-cols-3 gap-4 text-center">
               {[
@@ -427,7 +483,7 @@ export default function PortalDashboard() {
           <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 hover:shadow-md transition-shadow">
             <h2 className="text-xl font-semibold font-display text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Leave Calendar
+              {MESSAGES.UI.PORTAL_DASHBOARD.TAB_LEAVE_CALENDAR}
             </h2>
             <div className="grid grid-cols-7 gap-2 text-[10px] uppercase tracking-widest text-center text-slate-400 font-bold mb-4">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
@@ -455,8 +511,8 @@ export default function PortalDashboard() {
               })}
             </div>
             <div className="mt-6 flex items-center gap-4 text-xs text-slate-400">
-               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> Approved Leave</div>
-               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-accent"></span> Today</div>
+               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> {MESSAGES.UI.PORTAL_DASHBOARD.APPROVED_LEAVE}</div>
+               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-accent"></span> {MESSAGES.UI.PORTAL_DASHBOARD.TODAY}</div>
             </div>
           </div>
         </div>
@@ -466,14 +522,14 @@ export default function PortalDashboard() {
           <div className="p-8 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/30 dark:bg-slate-900/20">
             <h2 className="text-xl font-semibold font-display text-slate-900 dark:text-white flex items-center gap-2">
                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-               Leave Requests
+               {MESSAGES.UI.PORTAL_DASHBOARD.TAB_LEAVE_HISTORY}
             </h2>
             <button 
               onClick={() => setIsLeaveModalOpen(true)}
               className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-sm font-semibold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2 group"
             >
               <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              Request Time Off
+              {MESSAGES.UI.PORTAL_DASHBOARD.REQUEST_LEAVE}
             </button>
           </div>
           
@@ -481,39 +537,39 @@ export default function PortalDashboard() {
             <table className="w-full text-left text-sm border-separate border-spacing-y-2">
               <thead className="text-slate-400 font-bold uppercase text-[10px] tracking-widest hidden md:table-header-group">
                 <tr>
-                  <th className="px-6 py-3">Start Date</th>
-                  <th className="px-6 py-3">End Date</th>
-                  <th className="px-6 py-3">Type</th>
-                  <th className="px-6 py-3">Reason</th>
-                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_START_DATE}</th>
+                  <th className="px-6 py-3">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_END_DATE}</th>
+                  <th className="px-6 py-3">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_TYPE}</th>
+                  <th className="px-6 py-3">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_REASON}</th>
+                  <th className="px-6 py-3">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_STATUS}</th>
                 </tr>
               </thead>
               <tbody className="md:table-row-group flex flex-col gap-4 md:gap-0">
                 {leavesLoading ? (
-                  <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic"><div className="flex flex-col items-center gap-4"><div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div><p>Loading...</p></div></td></tr>
+                  <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic"><div className="flex flex-col items-center gap-4"><div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div><p>{MESSAGES.UI.PORTAL_DASHBOARD.LOADING}</p></div></td></tr>
                 ) : leaves.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">No leave requests found</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">{MESSAGES.UI.PORTAL_DASHBOARD.NO_LEAVE_REQUESTS}</td></tr>
                 ) : (
-                  leaves.map((leave) => (
+                  pagedLeaves.map((leave) => (
                     <tr key={leave.id} className="bg-slate-50/50 hover:bg-white dark:bg-slate-900/30 dark:hover:bg-slate-900/60 transition-all rounded-2xl shadow-sm hover:shadow-md flex flex-col md:table-row group">
                       <td className="px-6 py-4 font-medium rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none">
-                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">Start Date</span>
+                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_START_DATE}</span>
                          {leave.startDate}
                       </td>
                       <td className="px-6 py-2 md:py-4 font-medium">
-                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">End Date</span>
+                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_END_DATE}</span>
                          {leave.endDate}
                       </td>
                       <td className="px-6 py-2 md:py-4">
-                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">Type</span>
+                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_TYPE}</span>
                          <span className="px-3 py-1 bg-white dark:bg-slate-800 rounded-lg text-xs font-medium border border-slate-100 dark:border-slate-800">{leave.type}</span>
                       </td>
                       <td className="px-6 py-2 md:py-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
-                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">Reason</span>
+                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_REASON}</span>
                          {leave.reason || '-'}
                       </td>
                       <td className="px-6 py-4 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none">
-                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">Status</span>
+                         <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_STATUS}</span>
                          <StatusBadge status={leave.status} />
                       </td>
                     </tr>
@@ -522,17 +578,42 @@ export default function PortalDashboard() {
               </tbody>
             </table>
           </div>
+
+          {/* Leave Pagination */}
+          {totalLeavePages > 1 && (
+            <div className="px-8 py-4 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
+                {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white font-bold">{leavePage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalLeavePages}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLeavePage(prev => Math.max(1, prev - 1))}
+                  disabled={leavePage === 1}
+                  className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button
+                  onClick={() => setLeavePage(prev => Math.min(totalLeavePages, prev + 1))}
+                  disabled={leavePage === totalLeavePages}
+                  className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Profile Change Requests */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Profile Update Requests</h2>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">{MESSAGES.UI.PORTAL_DASHBOARD.TAB_PROFILE_UPDATE_REQUESTS}</h2>
             <button
               onClick={() => setIsProfileChangeModalOpen(true)}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
-              Request Update
+              {MESSAGES.UI.PORTAL_DASHBOARD.REQUEST_UPDATE}
             </button>
           </div>
 
@@ -540,20 +621,20 @@ export default function PortalDashboard() {
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 uppercase text-xs font-semibold tracking-wider">
                 <tr>
-                  <th className="px-6 py-4">Phone</th>
-                  <th className="px-6 py-4">Address</th>
-                  <th className="px-6 py-4">Emergency Contact</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Submitted</th>
+                  <th className="px-6 py-4">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_PHONE}</th>
+                  <th className="px-6 py-4">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_ADDRESS}</th>
+                  <th className="px-6 py-4">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_EMERGENCY_CONTACT}</th>
+                  <th className="px-6 py-4">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_STATUS}</th>
+                  <th className="px-6 py-4">{MESSAGES.UI.PORTAL_DASHBOARD.TABLE_HEADER_SUBMITTED}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {profileChangesLoading ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Loading requests...</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">{MESSAGES.UI.PORTAL_DASHBOARD.LOADING_REQUESTS}</td></tr>
                 ) : profileChanges.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No profile update requests yet.</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">{MESSAGES.UI.PORTAL_DASHBOARD.NO_PROFILE_UPDATE_REQUESTS}</td></tr>
                 ) : (
-                  profileChanges.map(req => (
+                  pagedProfileChanges.map(req => (
                     <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-6 py-4">{req.phone || '-'}</td>
                       <td className="px-6 py-4 max-w-xs truncate" title={req.address || ''}>{req.address || '-'}</td>
@@ -569,6 +650,31 @@ export default function PortalDashboard() {
               </tbody>
             </table>
           </div>
+
+          {/* Profile Request Pagination */}
+          {totalProfileChangePages > 1 && (
+            <div className="px-8 py-4 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
+                {MESSAGES.UI.HR_DASHBOARD.PAGE} <span className="text-slate-900 dark:text-white font-bold">{profileChangePage}</span> {MESSAGES.UI.HR_DASHBOARD.OF} {totalProfileChangePages}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setProfileChangePage(prev => Math.max(1, prev - 1))}
+                  disabled={profileChangePage === 1}
+                  className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button
+                  onClick={() => setProfileChangePage(prev => Math.min(totalProfileChangePages, prev + 1))}
+                  disabled={profileChangePage === totalProfileChangePages}
+                  className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* My Documents Section */}
@@ -576,14 +682,14 @@ export default function PortalDashboard() {
             <div className="p-8 border-b border-slate-100 dark:border-slate-700">
               <h2 className="text-xl font-semibold font-display text-slate-900 dark:text-white flex items-center gap-2">
                  <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                 My Documents
+                 {MESSAGES.UI.PORTAL_DASHBOARD.TAB_MY_DOCUMENTS}
               </h2>
             </div>
             <div className="p-0">
               {documentsLoading ? (
-                <div className="p-8 text-center text-slate-500 italic">Loading documents...</div>
+                <div className="p-8 text-center text-slate-500 italic">{MESSAGES.UI.PORTAL_DASHBOARD.LOADING_DOCUMENTS}</div>
               ) : documents.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 italic">No documents available</div>
+                <div className="p-8 text-center text-slate-500 italic">{MESSAGES.UI.PORTAL_DASHBOARD.NO_DOCUMENTS}</div>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {documents.map((doc) => (
@@ -600,7 +706,7 @@ export default function PortalDashboard() {
                       <button 
                         onClick={() => handleDownloadDocument(doc.id, doc.fileName)}
                         className="p-3 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-full transition-all shadow-sm"
-                        title="Download"
+                        title={MESSAGES.UI.PORTAL_DASHBOARD.DOWNLOAD}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                       </button>
@@ -617,14 +723,14 @@ export default function PortalDashboard() {
             <div className="p-8 border-b border-slate-800 relative z-10">
               <h2 className="text-xl font-semibold font-display text-white flex items-center gap-2">
                  <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                 Profile History
+                 {MESSAGES.UI.PORTAL_DASHBOARD.TAB_PROFILE_HISTORY}
               </h2>
             </div>
             <div className="p-0 relative z-10">
               {auditLogsLoading ? (
-                <div className="p-8 text-center text-slate-500 italic">Loading history...</div>
+                <div className="p-8 text-center text-slate-500 italic">{MESSAGES.UI.PORTAL_DASHBOARD.LOADING_HISTORY}</div>
               ) : auditLogs.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 italic">No history found</div>
+                <div className="p-8 text-center text-slate-500 italic">{MESSAGES.UI.PORTAL_DASHBOARD.NO_HISTORY}</div>
               ) : (
                 <div className="max-h-[400px] overflow-y-auto divide-y divide-slate-800 scrollbar-thin scrollbar-thumb-slate-700">
                   {auditLogs.map((log) => (
@@ -639,9 +745,9 @@ export default function PortalDashboard() {
                       </div>
                       <p className="text-sm text-slate-300 leading-relaxed">
                         {log.action === 'UPDATE' ? (
-                          <>Changed from <span className="font-mono text-xs bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{log.oldValue || 'None'}</span> to <span className="font-mono text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">{log.newValue}</span></>
+                          <>{MESSAGES.UI.PORTAL_DASHBOARD.CHANGED_FROM} <span className="font-mono text-xs bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{log.oldValue || MESSAGES.UI.PORTAL_DASHBOARD.NONE}</span> {MESSAGES.UI.PORTAL_DASHBOARD.TO} <span className="font-mono text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">{log.newValue}</span></>
                         ) : (
-                          <span className="italic opacity-80">Status updated by system</span>
+                          <span className="italic opacity-80">{MESSAGES.UI.PORTAL_DASHBOARD.STATUS_UPDATED_BY_SYSTEM}</span>
                         )}
                       </p>
                     </div>
@@ -658,21 +764,22 @@ export default function PortalDashboard() {
       <BaseModal
         isOpen={isLeaveModalOpen}
         onClose={() => setIsLeaveModalOpen(false)}
-        title="Request Leave"
+        title={MESSAGES.UI.PORTAL_DASHBOARD.REQUEST_LEAVE}
         isLoading={submitLeave.isPending}
       >
         <form onSubmit={handleLeaveSubmit} className="space-y-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400">{MESSAGES.UI.PORTAL_DASHBOARD.MODAL_LEAVE_SUBTITLE}</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Start Date <span className="text-rose-500">*</span>
+                {MESSAGES.UI.PORTAL_DASHBOARD.START_DATE} <span className="text-rose-500">*</span>
               </label>
               <input required type="date" value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} 
                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                End Date <span className="text-rose-500">*</span>
+                {MESSAGES.UI.PORTAL_DASHBOARD.END_DATE} <span className="text-rose-500">*</span>
               </label>
               <input required type="date" value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})}  
                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
@@ -681,31 +788,31 @@ export default function PortalDashboard() {
 
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-              Type <span className="text-rose-500">*</span>
+              {MESSAGES.UI.PORTAL_DASHBOARD.TYPE} <span className="text-rose-500">*</span>
             </label>
             <select required value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})} 
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none">
-              <option value="Sick">Sick Leave</option>
-              <option value="Vacation">Vacation / Annual Leave</option>
-              <option value="Personal">Personal Leave</option>
+              <option value="Sick">{MESSAGES.UI.PORTAL_DASHBOARD.SICK_LEAVE}</option>
+              <option value="Vacation">{MESSAGES.UI.PORTAL_DASHBOARD.VACATION_ANNUAL_LEAVE}</option>
+              <option value="Personal">{MESSAGES.UI.PORTAL_DASHBOARD.PERSONAL_LEAVE}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Reason</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{MESSAGES.UI.PORTAL_DASHBOARD.REASON}</label>
             <textarea rows={3} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} 
-                   placeholder="Briefly describe your request..."
+                   placeholder={MESSAGES.UI.PORTAL_DASHBOARD.REASON_PLACEHOLDER}
                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none resize-none transition-all" />
           </div>
 
           <div className="pt-4 flex justify-end gap-3">
             <button type="button" onClick={() => setIsLeaveModalOpen(false)} 
                     className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-2xl font-semibold transition-all">
-              Cancel
+              {MESSAGES.UI.PORTAL_DASHBOARD.CANCEL}
             </button>
             <button type="submit" disabled={submitLeave.isPending}
                     className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-semibold transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50">
-              Submit Request
+              {MESSAGES.UI.PORTAL_DASHBOARD.SUBMIT_REQUEST}
             </button>
           </div>
         </form>
@@ -715,16 +822,17 @@ export default function PortalDashboard() {
       <BaseModal
         isOpen={isProfileChangeModalOpen}
         onClose={() => setIsProfileChangeModalOpen(false)}
-        title="Request Profile Update"
+        title={MESSAGES.UI.PORTAL_DASHBOARD.UPDATE_PROFILE}
         isLoading={submitProfileChange.isPending}
       >
         <form onSubmit={handleProfileChangeSubmit} className="space-y-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400">{MESSAGES.UI.PORTAL_DASHBOARD.MODAL_PROFILE_SUBTITLE}</p>
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Phone</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{MESSAGES.UI.PORTAL_DASHBOARD.PHONE}</label>
             <input
               type="text"
               value={profileChangeForm.phone}
-              placeholder="e.g. 0917 123 4567"
+              placeholder={MESSAGES.UI.PORTAL_DASHBOARD.PHONE_PLACEHOLDER}
               onChange={e => {
                 setProfileChangeForm({ ...profileChangeForm, phone: e.target.value });
                 setProfileErrors(prev => ({ ...prev, phone: '' }));

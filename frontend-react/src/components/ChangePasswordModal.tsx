@@ -3,6 +3,8 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useToast } from './ToastContext';
 import { BaseModal } from './ui/BaseModal';
+import { MESSAGES } from '../constants/messages';
+import { ENDPOINTS } from '../constants/api';
 
 export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { showToast } = useToast();
@@ -10,9 +12,9 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
   const [error, setError] = useState('');
 
   const changePassword = useMutation({
-    mutationFn: (payload: { currentPassword: string; newPassword: string }) => api.put('/portal/change-password', payload),
+    mutationFn: (payload: { currentPassword: string; newPassword: string }) => api.put(ENDPOINTS.AUTH.CHANGE_PASSWORD, payload),
     onSuccess: () => {
-      showToast('Password updated successfully', 'success');
+      showToast(MESSAGES.AUTH.PASSWORD_UPDATE_SUCCESS, 'success');
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setError('');
       onClose();
@@ -25,12 +27,16 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (form.currentPassword === form.newPassword) {
+      setError(MESSAGES.VALIDATION.PASSWORD_SAME);
+      return;
+    }
     if (form.newPassword !== form.confirmPassword) {
-      setError('Passwords do not match');
+      setError(MESSAGES.VALIDATION.PASSWORD_MISMATCH);
       return;
     }
     if (form.newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(MESSAGES.VALIDATION.PASSWORD_MIN_LENGTH);
       return;
     }
     changePassword.mutate({ currentPassword: form.currentPassword, newPassword: form.newPassword });
@@ -43,7 +49,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
     <BaseModal
       isOpen={isOpen}
       onClose={() => { setError(''); onClose(); }}
-      title="Security Verification"
+      title={MESSAGES.UI.CHANGE_PASSWORD_MODAL.TITLE}
       maxWidth="sm"
       footer={
         <button 
@@ -54,7 +60,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
         >
           {changePassword.isPending ? (
             <div className="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-          ) : 'Commit Changes'}
+          ) : MESSAGES.UI.CHANGE_PASSWORD_MODAL.COMMIT}
         </button>
       }
     >
@@ -64,8 +70,8 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
            </div>
            <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">Password Update</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Identity Shield</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{MESSAGES.UI.CHANGE_PASSWORD_MODAL.SUBTITLE}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">{MESSAGES.UI.CHANGE_PASSWORD_MODAL.LIFECYCLE_TRACKING}</p>
            </div>
         </div>
 
@@ -77,19 +83,19 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
 
         <div className="space-y-4">
           <div>
-            <label className={labelClass}>Current Password *</label>
+            <label className={labelClass}>{MESSAGES.UI.CHANGE_PASSWORD_MODAL.FIELD_CURRENT} *</label>
             <input
               required
               type="password"
               value={form.currentPassword}
               onChange={e => setForm({ ...form, currentPassword: e.target.value })}
               className={inputClass}
-              placeholder="Enter your current password"
+              placeholder={MESSAGES.UI.CHANGE_PASSWORD_MODAL.PLACEHOLDER_CURRENT}
             />
           </div>
           <div className="h-px bg-slate-100 dark:bg-slate-800 my-2" />
           <div>
-            <label className={labelClass}>New Secret Password *</label>
+            <label className={labelClass}>{MESSAGES.UI.CHANGE_PASSWORD_MODAL.FIELD_NEW} *</label>
             <input
               required
               type="password"
@@ -97,11 +103,11 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
               value={form.newPassword}
               onChange={e => setForm({ ...form, newPassword: e.target.value })}
               className={inputClass}
-              placeholder="Min 6 characters"
+              placeholder={MESSAGES.UI.CHANGE_PASSWORD_MODAL.PLACEHOLDER_NEW}
             />
           </div>
           <div>
-            <label className={labelClass}>Validate Password *</label>
+            <label className={labelClass}>{MESSAGES.UI.CHANGE_PASSWORD_MODAL.FIELD_CONFIRM} *</label>
             <input
               required
               type="password"
@@ -109,7 +115,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
               value={form.confirmPassword}
               onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
               className={inputClass}
-              placeholder="Retype your new password"
+              placeholder={MESSAGES.UI.CHANGE_PASSWORD_MODAL.PLACEHOLDER_CONFIRM}
             />
           </div>
         </div>

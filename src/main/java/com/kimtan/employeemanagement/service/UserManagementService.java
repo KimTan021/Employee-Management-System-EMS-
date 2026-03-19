@@ -28,7 +28,7 @@ public class UserManagementService {
     public UserDto createUser(CreateUserRequest request) {
         // Validate username uniqueness
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new IllegalArgumentException("Username '" + request.getUsername() + "' already exists");
+            throw new IllegalArgumentException("error.user.username_exists");
         }
 
         String role = request.getRole() != null ? request.getRole() : "EMPLOYEE";
@@ -44,10 +44,10 @@ public class UserManagementService {
         // If employeeId is provided, link the user to the employee
         if (request.getEmployeeId() != null) {
             Employee employee = employeeRepository.findById(request.getEmployeeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + request.getEmployeeId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.employee.not_found"));
 
             if (employee.getUser() != null) {
-                throw new IllegalArgumentException("Employee already has an account linked (username: " + employee.getUser().getUsername() + ")");
+                throw new IllegalArgumentException("error.employee.already_linked");
             }
 
             employee.setUser(savedUser);
@@ -75,7 +75,7 @@ public class UserManagementService {
     @Transactional
     public void deleteUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.not_found"));
 
         // Unlink from employee if linked
         employeeRepository.findByUserUsername(user.getUsername())
@@ -90,7 +90,7 @@ public class UserManagementService {
     @Transactional
     public void resetPassword(Long userId, String newPassword) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.not_found"));
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
@@ -98,10 +98,10 @@ public class UserManagementService {
     @Transactional
     public void changeOwnPassword(String username, ChangePasswordRequest request) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.not_found"));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Current password is incorrect");
+            throw new IllegalArgumentException("error.user.incorrect_password");
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));

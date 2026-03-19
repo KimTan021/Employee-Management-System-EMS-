@@ -8,9 +8,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,16 +33,18 @@ class UserManagementControllerWebMvcTest {
     @Mock
     private UserManagementService userManagementService;
 
-    @InjectMocks
-    private UserManagementController userManagementController;
+    @Mock
+    private MessageSource messageSource;
 
     private MockMvc mockMvc;
+    private UserManagementController userManagementController;
     private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @BeforeEach
     void setUp() {
+        userManagementController = new UserManagementController(userManagementService);
         mockMvc = MockMvcBuilders.standaloneSetup(userManagementController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(messageSource))
                 .build();
     }
 

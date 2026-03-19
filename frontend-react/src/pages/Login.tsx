@@ -4,6 +4,8 @@ import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../components/theme-provider';
 import { useToast } from '../components/ToastContext';
+import { MESSAGES } from '../constants/messages';
+import { ENDPOINTS } from '../constants/api';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -23,14 +25,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/auth/login', { username, password });
+      const { data } = await api.post(ENDPOINTS.AUTH.LOGIN, { username, password });
       setAuth(data.token, data.username, data.role, rememberMe);
       navigate('/');
     } catch (err: any) {
       if (err.code === 'ERR_NETWORK' || err.code === 'ERR_CONNECTION_REFUSED') {
-        setError('Cannot connect to the server. Please ensure the backend is running on port 8081.');
+        setError(MESSAGES.AUTH.SERVER_CONNECTION_ERROR);
       } else {
-        setError(err.response?.data?.message || 'Invalid credentials. Please check your username and password.');
+        setError(err.response?.data?.message || MESSAGES.AUTH.LOGIN_ERROR);
       }
     } finally {
       setLoading(false);
@@ -38,7 +40,7 @@ export default function Login() {
   };
 
   const handleForgotPassword = () => {
-    showToast('Contact your system administrator to reset your password.', 'info');
+    showToast(MESSAGES.AUTH.FORGOT_PASSWORD_INFO, 'info');
   };
 
   return (
@@ -68,10 +70,10 @@ export default function Login() {
             <span className="text-2xl font-bold tracking-tighter">EMS<span className="text-accent">.</span></span>
           </div>
           <h2 className="mt-8 text-4xl font-light tracking-tight text-slate-900 dark:text-white">
-            Welcome back
+            {MESSAGES.UI.LOGIN.WELCOME_BACK}
           </h2>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 font-medium">
-            Please enter your details to sign in
+            {MESSAGES.UI.LOGIN.ENTER_DETAILS}
           </p>
         </div>
         
@@ -83,13 +85,13 @@ export default function Login() {
           )}
 
           <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-            Fields marked <span className="text-red-500" aria-hidden="true">*</span> are required.
+            {MESSAGES.UI.LOGIN.FIELD_REQUIRED_INFO.split('*')[0]} <span className="text-red-500" aria-hidden="true">*</span> {MESSAGES.UI.LOGIN.FIELD_REQUIRED_INFO.split('*')[1]}
           </p>
           
           <div className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="username">
-                Username <span className="text-red-500" aria-hidden="true">*</span>
+                {MESSAGES.UI.LOGIN.USERNAME} <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="username"
@@ -97,14 +99,14 @@ export default function Login() {
                 type="text"
                 required
                 className="relative block w-full appearance-none rounded-2xl border-none bg-slate-100/80 px-4 py-4 text-slate-900 placeholder-slate-400 focus:z-10 focus:outline-none focus:ring-2 focus:ring-accent sm:text-sm dark:bg-slate-900/50 dark:text-white dark:placeholder-slate-500 transition-all shadow-inner"
-                placeholder="Enter your username"
+                placeholder={MESSAGES.UI.LOGIN.USERNAME_PLACEHOLDER}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="password">
-                Password <span className="text-red-500" aria-hidden="true">*</span>
+                {MESSAGES.UI.LOGIN.PASSWORD} <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <input
                 id="password"
@@ -129,10 +131,10 @@ export default function Login() {
                  onChange={(e) => setRememberMe(e.target.checked)}
                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-accent dark:border-slate-600 dark:bg-slate-700 dark:checked:bg-accent"
                />
-               <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 dark:text-slate-400">Remember me</label>
+               <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 dark:text-slate-400">{MESSAGES.UI.LOGIN.REMEMBER_ME}</label>
              </div>
              <div className="text-sm">
-               <button type="button" onClick={handleForgotPassword} className="font-medium text-slate-900 hover:text-slate-700 dark:text-white dark:hover:text-slate-300 transition-colors">Forgot password?</button>
+               <button type="button" onClick={handleForgotPassword} className="font-medium text-slate-900 hover:text-slate-700 dark:text-white dark:hover:text-slate-300 transition-colors">{MESSAGES.UI.LOGIN.FORGOT_PASSWORD_LINK}</button>
              </div>
           </div>
 
@@ -154,7 +156,7 @@ export default function Login() {
                   </svg>
                 )}
               </span>
-              {loading ? 'Authenticating...' : 'Sign in to account'}
+              {loading ? MESSAGES.UI.LOGIN.AUTHENTICATING : MESSAGES.UI.LOGIN.SIGN_IN_BUTTON}
             </button>
           </div>
         </form>
