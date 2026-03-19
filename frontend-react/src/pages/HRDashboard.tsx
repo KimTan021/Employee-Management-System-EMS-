@@ -65,6 +65,8 @@ interface ProfileChangeRequest {
   createdAt: string;
 }
 
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
 export default function HRDashboard() {
   const { username, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -279,6 +281,14 @@ export default function HRDashboard() {
     return Object.keys(counts).map(dept => ({ name: dept, value: counts[dept] }));
   }, [employees]);
 
+  const departmentColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    departmentStats.forEach((dept, index) => {
+      map[dept.name] = COLORS[index % COLORS.length];
+    });
+    return map;
+  }, [departmentStats]);
+
   const filteredLeaves = useMemo(() => {
     if (leaveFilter === 'ALL') return leaves;
     return leaves.filter(l => l.status === leaveFilter);
@@ -326,7 +336,6 @@ export default function HRDashboard() {
     departmentPage * departmentPageSize
   );
 
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
   // ============= EFFECTS =============
   useEffect(() => {
@@ -695,7 +704,14 @@ export default function HRDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 ring-1 ring-inset ring-purple-600/10">
+                            <span 
+                              className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors ring-1 ring-inset"
+                              style={{ 
+                                backgroundColor: `${departmentColorMap[emp.departmentName] || '#6366f1'}15`, 
+                                color: departmentColorMap[emp.departmentName] || '#6366f1',
+                                border: `1px solid ${departmentColorMap[emp.departmentName] || '#6366f1'}30`
+                              }}
+                            >
                               {emp.departmentName}
                             </span>
                           </td>

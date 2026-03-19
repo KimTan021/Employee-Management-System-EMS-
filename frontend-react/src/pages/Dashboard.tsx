@@ -33,6 +33,8 @@ interface DashboardStats {
   averageAge: number;
 }
 
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
 export default function Dashboard() {
   const { logout } = useAuthStore();
   const navigate = useNavigate();
@@ -100,7 +102,6 @@ export default function Dashboard() {
   );
 
   // Chart Data preparation
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
   
   const departmentStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -109,6 +110,14 @@ export default function Dashboard() {
     });
     return Object.keys(counts).map(dept => ({ name: dept, value: counts[dept] }));
   }, [employees]);
+
+  const departmentColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    departmentStats.forEach((dept, index) => {
+      map[dept.name] = COLORS[index % COLORS.length];
+    });
+    return map;
+  }, [departmentStats]);
 
   const handleExportPDF = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
@@ -288,26 +297,33 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Charts Column */}
             <div className="lg:col-span-4 space-y-8">
-                <div className="lg:col-span-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 flex flex-col items-center">
-                  <h3 className="text-slate-800 dark:text-white font-semibold text-lg mb-6 self-start">{MESSAGES.UI.ADMIN_DASHBOARD.SYSTEM_OVERVIEW}</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={departmentStats}
-                        innerRadius="60%"
-                        outerRadius="80%"
-                        paddingAngle={5}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        {departmentStats.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-8 rounded-[2.5rem] shadow-sm border border-slate-100/50 dark:border-slate-700/50 flex flex-col items-center">
+                  <h3 className="text-slate-800 dark:text-white font-semibold text-lg mb-6 self-start tracking-tight">{MESSAGES.UI.ADMIN_DASHBOARD.SYSTEM_OVERVIEW}</h3>
+                <div className="h-64 w-full flex items-center justify-center">
+                  {departmentStats.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={departmentStats}
+                          innerRadius="60%"
+                          outerRadius="80%"
+                          paddingAngle={5}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {departmentStats.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="text-slate-400 text-xs font-medium uppercase tracking-widest text-center">
+                      <svg className="w-8 h-8 mx-auto mb-2 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                      No Data<br/>Available
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2 justify-center">
                   {departmentStats.map((dept, idx) => (
@@ -378,12 +394,11 @@ export default function Dashboard() {
                         <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_EMPLOYEE_INFO}</th>
                         <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_DEPARTMENT}</th>
                         <th className="px-6 py-4">{MESSAGES.UI.HR_DASHBOARD.COL_SALARY_AGE}</th>
-                        <th className="px-6 py-4 text-right">{MESSAGES.UI.COMMON.ACTIONS}</th>
                       </tr>
                    </thead>
                    <tbody className="md:table-row-group flex flex-col gap-4 md:gap-0">
                      {isLoading ? (
-                       <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                       <tr><td colSpan={3} className="px-6 py-12 text-center text-slate-500">
                             <div className="flex flex-col items-center gap-4">
                               <div className="w-10 h-10 rounded-full border-2 border-rose-500 border-t-transparent animate-spin"></div>
                               <p className="text-slate-500 font-medium">{MESSAGES.UI.HR_DASHBOARD.LOADING_WORKFORCE}</p>
@@ -405,29 +420,22 @@ export default function Dashboard() {
                            </td>
                            <td className="px-6 py-2 md:py-4">
                               <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1 font-bold">Department</span>
-                              <span className="px-3 py-1 bg-white dark:bg-slate-800 rounded-lg text-xs font-semibold border border-slate-100 dark:border-slate-800 shadow-sm">{emp.departmentName}</span>
+                              <span 
+                                className="px-3 py-1 rounded-lg text-xs font-semibold border shadow-sm transition-colors"
+                                style={{ 
+                                  backgroundColor: `${departmentColorMap[emp.departmentName] || '#6366f1'}15`, 
+                                  color: departmentColorMap[emp.departmentName] || '#6366f1',
+                                  borderColor: `${departmentColorMap[emp.departmentName] || '#6366f1'}30`
+                                }}
+                              >
+                                {emp.departmentName}
+                              </span>
                            </td>
                            <td className="px-6 py-4">
                               <span className="md:hidden text-[10px] uppercase text-slate-400 block mb-1 font-bold">Details</span>
                               <div className="flex flex-col">
                                 <span className="text-slate-900 dark:text-slate-100 font-semibold">${emp.salary.toLocaleString()}</span>
                                 <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{calculateAge(emp.dateOfBirth)} {MESSAGES.UI.HR_DASHBOARD.YEARS_OLD}</span>
-                              </div>
-                            </td>
-                           <td className="px-6 py-4 rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {showDeactivated && (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeleteId(emp.id);
-                                    }}
-                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-lg transition-colors"
-                                    title="Permanently Delete"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                  </button>
-                                )}
                               </div>
                             </td>
                          </tr>
