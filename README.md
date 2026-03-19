@@ -1,80 +1,68 @@
 # Employee Management System
 
-A sophisticated, full-stack enterprise solution for modern workforce management. Built with Java Spring Boot and React, this system offers a secure, role-based platform for managing the entire employee lifecycle—from onboarding and documentation to leave management and audit compliance.
+A robust, enterprise-ready Employee Management System built with Java Spring Boot and React. Focuses on security, documentation, and a comprehensive automated testing lifecycle.
 
 ## 🚀 Key Modules & Features
 
-### 🔐 Multi-Role Specialized Portals
-- **Admin Command Center**: Complete system oversight, user account provisioning with role assignments (Admin, HR, Employee), and database maintenance.
-- **HR Strategic Dashboard**: 
-    - **Workforce Directory**: Advanced management with automated `EMP-ID` generation and age validation.
-    - **Approval Workflows**: Centralized hubs for reviewing Leave Requests and Profile Change proposals.
-    - **Data Intelligence**: Visual department analytics and real-time statistics (Avg Salary, Age, Headcount).
-- **Employee Self-Service Portal**: Personal dashboard for profile management, leave tracking, and secure document access.
+### 🔐 Role-Based Access Control (RBAC)
+- **Admin Command Center**: Complete oversight, user provisioning, and role management.
+- **HR Strategic Dashboard**: Workforce analytics, leave approvals, and profile update workflows.
+- **Employee Self-Service**: Personal dashboard for profile management and leave tracking.
 
 ### 📦 Core Functionality
-- **Employee Lifecycle**: 
-    - **Soft Delete/Restore**: Deactivate employees while preserving history, with the ability to restore access instantly.
-    - **Permanent Cleanup**: Securely purge employee data, including physical files, documents, and system records.
-- **Document Management System**: Enterprise-grade file handling for contracts and IDs with role-based download permissions.
-- **Leave Management Workflow**: End-to-end digital requests with real-time status tracking (Pending, Approved, Rejected).
-- **Audit & Compliance**: Automated event logging for every system action (Create, Update, Deactivate, Restore), ensuring a transparent trail of modifications.
-- **Reporting & Data Portability**: Instant export of workforce data to **PDF Reports** and **CSV Spreadsheets** for offline analysis.
+- **Employee Lifecycle**: Automated `EMP-ID` generation, 18+ age validation, and soft-delete/restore capabilities.
+- **Document Management**: Secure file upload and retrieval for sensitive employee records.
+- **Leave Management**: Hierarchical leave request and approval system with real-time tracking.
+- **Audit & Compliance**: Centralized logging of all system actions (history tracking).
+- **Reporting**: Native support for **PDF Reports** and **CSV Exports** of workforce data.
+
+### 🧪 Testing & Quality Assurance
+The system is built with a "Test-First" mentality, ensuring 100% stability through a tiered testing architecture:
+- **Unit Testing**: Isolated logic testing for all Services using **JUnit 5** and **Mockito**.
+- **WebMvc (Controller) Testing**: API endpoint verification in a mocked environment for all REST controllers.
+- **Integration Testing**: End-to-end lifecycle verification (e.g., full employee creation-to-deletion flows).
+- **Error Handling**: Centralized **Global Exception Handling** ensuring consistent API responses.
 
 ## 🛠️ Tech Stack
 
 ### Backend
 - **Core**: Java 25 & Spring Boot 4.x
-- **Persistence**: MySQL with Spring Data JPA & Hibernate
-- **Migrations**: Flyway (Automated schema versioning)
-- **Security**: JWT (Stateless authentication) & Spring Security RBAC
-- **Ops**: Maven Architecture
+- **Persistence**: MySQL, Data JPA, Hibernate
+- **Migrations**: Flyway
+- **Security**: JWT & Spring Security
+- **Testing**: JUnit 5, Mockito, Spring Boot Test
 
 ### Frontend
 - **Framework**: React 19 (Vite)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS 4 with Premium Mesh Gradient Design
-- **State/Data**: Zustand & TanStack React Query
-- **Visualization**: Recharts (Interactive Analytics)
-- **Icons**: Lucide React
+- **State**: Zustand & TanStack React Query
+- **Styling**: Tailwind CSS 4 (Mesh Gradient UI)
+- **Visuals**: Recharts & Lucide Icons
 
 ## 📋 Prerequisites
-
 - **JDK 25**
 - **Node.js (v18+)**
 - **MySQL Server**
-- **Maven** (optional, `./mvnw` included)
 
-## ⚙️ Quick Start
+## ⚙️ Setup & Operations
 
-### 1. Database
-Create a database named `emp_db`. The system handles schema creation via Flyway.
-*Default: root / admin*
+### Database
+Ensure MySQL is running with a database named `emp_db`.
 
-### 2. Backend
+### Running the App
+- **Backend**: `./mvnw spring-boot:run`
+- **Frontend**: `cd frontend-react && npm install && npm run dev`
+
+### Running Tests
+Execute the full test suite using the Maven wrapper:
 ```bash
-./mvnw spring-boot:run
-```
-
-### 3. Frontend
-```bash
-cd frontend-react
-npm install
-npm run dev
+./mvnw test
 ```
 
 ## 🖇️ API Architecture Summary
-
-### Public/Auth (`/api/auth`)
-- `POST /login`, `POST /register`
-
-### Admin/HR Secure Endpoints (`/api/admin`)
-- `/users` - User account management
-- `/documents` - Secure file storage & retrieval
-- `/audit` - System-wide compliance logs
-
-### Core Business Services
-- `/api/employees` - Workforce management (CRUD, Restore, Stats)
-- `/api/departments` - Organization structure
-- `/api/leave-requests` - Absence management
-- `/api/profile-changes` - Information update workflows
+- `/api/auth` - Login & Registration
+- `/api/admin/users` - User Management (Admin Only)
+- `/api/admin/documents` - Document Storage
+- `/api/admin/audit` - System Audit Trail
+- `/api/employees` - Employee CRUD & Stats
+- `/api/leave-requests` - Absence Management
+- `/api/profile-changes` - Profile Update Workflows
